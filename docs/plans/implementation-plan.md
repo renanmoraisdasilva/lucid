@@ -195,8 +195,7 @@ chatbot_mvp/
 │       └── fixtures/               # recorded provider event frames
 └── frontend/
     ├── package.json
-    ├── vite.config.ts              # /api proxy → 127.0.0.1:8000
-    ├── tailwind.config.ts
+    ├── vite.config.ts              # /api proxy → 127.0.0.1:8000, Tailwind plugin, Vitest config
     ├── Dockerfile
     ├── index.html
     └── src/
@@ -792,8 +791,9 @@ uv run pytest -q
 # Frontend
 cd ..\frontend
 npm run lint
+npm run format:check
 npm run typecheck
-npm run test -- --run
+npm test
 
 # Full-stack acceptance path
 cd ..
@@ -852,7 +852,7 @@ Adapted from roadmap §8. A task is done when the applicable boxes hold:
 - [ ] Security implications considered (no secrets, no content logging, no raw HTML)
 - [ ] Automated tests cover the behaviour, including at least one failure case
 - [ ] `ruff check`, `ruff format --check`, `pyright`, `pytest` pass (backend)
-- [ ] `npm run lint`, `npm run typecheck`, `npm run test` pass (frontend)
+- [ ] `npm run lint`, `npm run typecheck`, `npm test` pass (frontend)
 - [ ] No new dependency without a stated reason in the README table
 - [ ] Docs/ADR/spec updated if a decision changed
 - [ ] The change can be explained in an interview: what, why, alternatives, failure modes

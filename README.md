@@ -10,11 +10,20 @@ without hiding behind a framework or an agent library.
 
 ## Status
 
-**Design complete, implementation not started.**
+**Milestone 1 (project foundation) complete.** The API serves health and
+readiness endpoints, migrations run against PostgreSQL, the frontend shell talks
+to the API through the dev proxy, and CI runs the quality gates. Chat, provider
+integration, and persistence arrive in later milestones.
 
-The specification is approved and all open design decisions are resolved. Code
-begins with Milestone 1 of the implementation plan. Nothing in this repository
-runs yet, and the quickstart below is written for Milestone 1.
+| Milestone | State |
+|---|---|
+| 0 — Design close | ✅ |
+| 1 — Foundation | ✅ |
+| 2 — Persistence and conversations | ⬜ next |
+| 3 — Provider boundary and Gemini adapter | ⬜ |
+| 4 — Streaming chat | ⬜ |
+| 5 — Context, usage, resilience | ⬜ |
+| 6 — UI polish and acceptance | ⬜ |
 
 ## Documentation
 
@@ -35,46 +44,119 @@ syntax-highlighted code blocks. Everything persists in PostgreSQL. Full
 conversations are stored; only a bounded, budgeted slice is sent to the model.
 No RAG, no agents, no tools, no file uploads, no cloud deployment.
 
-## Planned stack
+## Stack
 
 | Layer | Choice |
 |---|---|
-| Backend | Python 3.12+, FastAPI, Pydantic v2 |
+| Backend | Python 3.12, FastAPI, Pydantic v2 |
 | Persistence | PostgreSQL 17, SQLAlchemy 2.x async, asyncpg, Alembic |
-| Model | Gemini `gemini-3.5-flash-lite` via the Interactions API (`google-genai`) |
-| Streaming | Server-Sent Events over `POST`, parsed with `fetch` |
-| Frontend | React 19 + TypeScript, Vite, Tailwind CSS, TanStack Query |
-| Quality | Ruff, Pyright, pytest, ESLint, Vitest, GitHub Actions |
-| Local dev | PostgreSQL in Docker Compose; app processes on the host |
+| Model | Gemini `gemini-3.5-flash-lite` via the Interactions API (`google-genai`) — Milestone 3 |
+| Streaming | Server-Sent Events over `POST`, parsed with `fetch` — Milestone 4 |
+| Frontend | React 19 + TypeScript, Vite, Tailwind CSS |
+| Quality | Ruff, Pyright (strict), pytest, ESLint, Prettier, Vitest, GitHub Actions |
+| Local dev | PostgreSQL in Docker Compose; API and web on the host |
 
-## Quickstart (target, from Milestone 1)
+### Why these dependencies
+
+| Dependency | Reason |
+|---|---|
+| `uv` | Reproducible Python toolchain and lockfile; also provisions the interpreter |
+| `fastapi`, `uvicorn` | Typed async HTTP framework with streaming support |
+| `pydantic`, `pydantic-settings` | Boundary validation and typed configuration |
+| `sqlalchemy[asyncio]`, `asyncpg` | Async persistence with explicit transactions |
+| `alembic` | Versioned schema migrations |
+| `ruff`, `pyright`, `pytest` | Lint/format, static typing, tests |
+| `react`, `react-dom`, `vite` | UI runtime and dev server |
+| `tailwindcss` | Styling without a bespoke CSS system |
+| `eslint`, `prettier`, `vitest`, `@testing-library/*` | Frontend quality gates |
+| `google-genai` | Gemini Interactions API client (added in Milestone 3) |
+
+## Prerequisites
+
+- Docker Desktop with Compose v2+
+- [`uv`](https://docs.astral.sh/uv/) and Python 3.12 (uv can install the
+  interpreter itself)
+- Node.js 22+
+- A Gemini API key, free tier is sufficient (Milestone 3 onwards)
+
+### Installing the toolchain on Windows
+
+Verified on this machine on 2026-10-28:
 
 ```powershell
-# 1. Start PostgreSQL
+# uv, which also manages the Python interpreter
+winget install --id=astral-sh.uv -e
+
+# Managed CPython 3.12 (no python.org installer needed)
+uv python install 3.12
+
+# npm ships .ps1 wrappers that a Restricted policy blocks
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+A new shell is required after `winget install` for `uv` to be on `PATH`.
+
+## Quickstart
+
+```powershell
+# 1. Configuration
+Copy-Item .env.example .env      # edit if you want different credentials
+
+# 2. PostgreSQL
 docker compose up -d db
 
-# 2. Backend
+# 3. Backend (terminal 1)
 cd backend
 uv sync
 uv run alembic upgrade head
 uv run uvicorn chatbot.main:app --reload
 
-# 3. Frontend (second terminal)
+# 4. Frontend (terminal 2)
 cd frontend
 npm install
 npm run dev
 ```
 
-Copy `.env.example` to `.env` and set `GEMINI_API_KEY` before talking to the
-model. Without it, set `PROVIDER=fake` to run against the scripted fake provider.
+Open http://127.0.0.1:5173. The page reports `API: ok` when the dev proxy can
+reach the backend.
 
-## Prerequisites
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/health` | Liveness, no dependency checks |
+| `GET /api/health/ready` | Readiness, includes a database round trip |
+| `/docs` | OpenAPI UI (development convenience) |
 
-- Docker Desktop with Compose v2+
-- Python 3.12+ and [`uv`](https://docs.astral.sh/uv/) — **not currently installed
-  on the development machine**
-- Node.js 22+
-- A Gemini API key (free tier is sufficient)
+## Development commands
+
+```powershell
+# Backend, from backend/
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright
+uv run pytest -q
+uv run alembic upgrade head
+
+# Frontend, from frontend/
+npm run lint
+npm run format:check
+npm run typecheck
+npm test
+npm run build
+```
+
+## Layout
+
+```text
+backend/src/chatbot/
+  api/           HTTP routes, request/response schemas
+  application/   orchestration, context budgeting, attempt lifecycle
+  domain/        provider protocol, events, error taxonomy
+  persistence/   engine, models, repositories
+  providers/     gemini adapter, fake provider
+backend/migrations/  Alembic revisions
+frontend/src/    React application
+docs/            specs, plan, ADRs
+```
 
 ## Known limitations (by design, for now)
 
