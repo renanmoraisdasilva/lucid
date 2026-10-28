@@ -10,17 +10,17 @@ without hiding behind a framework or an agent library.
 
 ## Status
 
-**Milestone 1 (project foundation) complete.** The API serves health and
-readiness endpoints, migrations run against PostgreSQL, the frontend shell talks
-to the API through the dev proxy, and CI runs the quality gates. Chat, provider
-integration, and persistence arrive in later milestones.
+**Milestone 2 (persistence and conversations) complete.** Conversations, messages,
+and generation attempts are persisted in PostgreSQL with their invariants enforced
+by constraints and indexes. The API can list (cursor-paginated), read, and delete
+conversations. Chat generation, provider integration, and streaming arrive next.
 
 | Milestone | State |
 |---|---|
 | 0 — Design close | ✅ |
 | 1 — Foundation | ✅ |
-| 2 — Persistence and conversations | ⬜ next |
-| 3 — Provider boundary and Gemini adapter | ⬜ |
+| 2 — Persistence and conversations | ✅ |
+| 3 — Provider boundary and Gemini adapter | ⬜ next |
 | 4 — Streaming chat | ⬜ |
 | 5 — Context, usage, resilience | ⬜ |
 | 6 — UI polish and acceptance | ⬜ |
@@ -124,7 +124,12 @@ reach the backend.
 |---|---|
 | `GET /api/health` | Liveness, no dependency checks |
 | `GET /api/health/ready` | Readiness, includes a database round trip |
+| `GET /api/conversations` | Cursor-paginated list, most recently updated first |
+| `GET /api/conversations/{id}` | Conversation with messages and attempt metadata |
+| `DELETE /api/conversations/{id}` | Permanent delete, messages and attempts cascade |
 | `/docs` | OpenAPI UI (development convenience) |
+
+Errors use one envelope: `{"error": {"code", "message", "details"}}`.
 
 ## Development commands
 
@@ -143,6 +148,10 @@ npm run typecheck
 npm test
 npm run build
 ```
+
+Integration tests run against the Compose database and **truncate the chat
+tables** between cases. They skip automatically when no database is reachable.
+Point them elsewhere with `TEST_DATABASE_URL`.
 
 ## Layout
 

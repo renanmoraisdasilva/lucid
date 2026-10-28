@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from chatbot.api.errors import install_error_handlers
+from chatbot.api.routes_conversations import router as conversations_router
 from chatbot.api.routes_health import router as health_router
 from chatbot.config import get_settings
 from chatbot.logging import RequestIdMiddleware, configure_logging
@@ -33,7 +35,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.add_middleware(RequestIdMiddleware)
+    install_error_handlers(app)
     app.include_router(health_router, prefix="/api")
+    app.include_router(conversations_router, prefix="/api")
     return app
 
 

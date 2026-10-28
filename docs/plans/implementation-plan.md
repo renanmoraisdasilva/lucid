@@ -220,7 +220,8 @@ CREATE TABLE conversations (
     updated_at  timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT conversations_title_len CHECK (char_length(title) BETWEEN 1 AND 80)
 );
-CREATE INDEX ix_conversations_order ON conversations (updated_at DESC, id DESC);
+CREATE INDEX ix_conversations_order ON conversations (updated_at, id);
+-- A backward index scan serves "ORDER BY updated_at DESC, id DESC".
 
 CREATE TABLE messages (
     id              uuid        PRIMARY KEY,
@@ -588,7 +589,7 @@ commands pass locally, no feature code committed.
 | # | Task |
 |---|---|
 | 2.1 | `tables.py` with the three models, constraints, and indexes from section 4 |
-| 2.2 | Alembic revision `0001_initial`; verify downgrade works |
+| 2.2 | Alembic revision `0002_chat_schema` (baseline `0001_baseline` was created in Milestone 1); downgrade verified |
 | 2.3 | `repositories.py`: conversation create/get/touch/delete, message insert with `seq` allocation under a row lock, attempt create/update/fetch, keyset list |
 | 2.4 | `titles.py` + unit tests (section 4 cases) |
 | 2.5 | Cursor encode/decode + unit tests (round-trip, malformed, foreign) |
