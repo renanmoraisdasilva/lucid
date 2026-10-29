@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+from lucid.application.registry import GenerationRegistry
 from lucid.config import get_settings
 from lucid.main import create_app
 from lucid.persistence.db import get_session
@@ -84,16 +85,23 @@ async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture
-def app(engine: AsyncEngine) -> FastAPI:
+def session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    """Session factory bound to the test engine, used by the streaming path."""
+    return async_sessionmaker(engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def app(engine: AsyncEngine, session_factory: async_sessionmaker[AsyncSession]) -> FastAPI:
     """The real application with its database session pointed at the test engine."""
     application = create_app()
-    factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async def override_get_session() -> AsyncIterator[AsyncSession]:
-        async with factory() as db_session:
+        async with session_factory() as db_session:
             yield db_session
 
     application.dependency_overrides[get_session] = override_get_session
+    application.state.session_factory = session_factory
+    application.state.registry = GenerationRegistry()
     return application
 
 

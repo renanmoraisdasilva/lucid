@@ -53,6 +53,7 @@ class StreamCompleted:
     """Terminal event for a successful generation."""
 
     usage: Usage | None = None
+    finish_reason: str = "stop"
 
 
 ProviderEvent = TextDelta | StreamCompleted

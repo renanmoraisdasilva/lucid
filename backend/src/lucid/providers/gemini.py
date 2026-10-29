@@ -94,7 +94,11 @@ def map_event(event: object) -> ProviderEvent | None:
         status = getattr(interaction, "status", None)
         if status in ("failed", "cancelled"):
             raise ProviderStreamError(detail=f"interaction status {status!r}")
-        return StreamCompleted(usage=map_usage(getattr(interaction, "usage", None)))
+        finish_reason = "length" if status == "incomplete" else "stop"
+        return StreamCompleted(
+            usage=map_usage(getattr(interaction, "usage", None)),
+            finish_reason=finish_reason,
+        )
 
     if kind == "error":
         raise _translate_stream_error(getattr(event, "error", None))

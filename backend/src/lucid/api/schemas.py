@@ -97,13 +97,9 @@ class ChatRequest(BaseModel):
     content: MessageContent
 
 
-class ChatResponse(BaseModel):
-    """Complete (non-streaming) reply from the temporary Milestone 3 endpoint."""
+class StopGenerationResponse(BaseModel):
+    """Result of a stop request. The stream still sends the terminal event."""
 
-    conversation_id: uuid.UUID
-    user_message_id: uuid.UUID
     attempt_id: uuid.UUID
-    assistant_message_id: uuid.UUID | None = None
-    attempt_status: AttemptStatus
-    content: str
-    usage: UsageOut | None = None
+    status: AttemptStatus
+    stop_requested: bool

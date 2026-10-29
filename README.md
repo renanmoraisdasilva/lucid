@@ -10,11 +10,15 @@ without hiding behind a framework or an agent library.
 
 ## Status
 
-**Milestone 3 (provider boundary and Gemini adapter) complete.** The application
-talks to Gemini through an application-owned `ChatProvider` protocol, with a
-scripted fake provider for tests. A live call to `gemini-3.5-flash-lite` was
-verified on 2026-10-29: real reply, usage metadata (`127 in / 40 out`), both
-messages persisted. Streaming with SSE is next.
+**Milestone 4 (streaming chat) complete.** Replies stream over SSE with `meta`,
+`delta`, `usage`, and exactly one terminal `done`/`error` event. Stop, client
+disconnect, retry, and the 409 concurrency rule are implemented and tested. The
+temporary JSON endpoint is gone. Verified against live Gemini: incremental
+deltas, `usage` (`117 in / 1 out`), and a deliberate mid-stream abort that
+persisted a 43-character interrupted message with no active attempt left behind.
+
+The React app is functional: conversation list, streaming thread, Stop, Retry,
+errors, usage. Visual polish against `docs/screen-mockups/` is Milestone 6.
 
 | Milestone | State |
 |---|---|
@@ -22,8 +26,8 @@ messages persisted. Streaming with SSE is next.
 | 1 — Foundation | ✅ |
 | 2 — Persistence and conversations | ✅ |
 | 3 — Provider boundary and Gemini adapter | ✅ |
-| 4 — Streaming chat | ⬜ next |
-| 5 — Context, usage, resilience | ⬜ |
+| 4 — Streaming chat | ✅ |
+| 5 — Context, usage, resilience | ⬜ next |
 | 6 — UI polish and acceptance | ⬜ |
 
 ## Documentation
@@ -135,7 +139,9 @@ network access.
 | `GET /api/conversations` | Cursor-paginated list, most recently updated first |
 | `GET /api/conversations/{id}` | Conversation with messages and attempt metadata |
 | `DELETE /api/conversations/{id}` | Permanent delete, messages and attempts cascade |
-| `POST /api/chat` | Temporary non-streaming reply (Milestone 4 replaces it with SSE) |
+| `POST /api/chat` | Send a message; returns `text/event-stream` |
+| `POST /api/conversations/{cid}/messages/{mid}/retry` | Retry a user message; streams a new attempt |
+| `POST /api/conversations/{cid}/generations/{aid}/stop` | Cooperative stop, `202`, idempotent |
 | `/docs` | OpenAPI UI (development convenience) |
 
 Errors use one envelope: `{"error": {"code", "message", "details"}}`.

@@ -26,6 +26,7 @@ class FakeScript:
     fail_before_first_token: Exception | None = None
     fail_after_first_token: Exception | None = None
     delay_seconds: float = 0.0
+    finish_reason: str = "stop"
 
 
 class FakeProvider:
@@ -54,4 +55,4 @@ class FakeProvider:
                 await asyncio.sleep(script.delay_seconds)
             yield TextDelta(text=delta)
 
-        yield StreamCompleted(usage=script.usage)
+        yield StreamCompleted(usage=script.usage, finish_reason=script.finish_reason)

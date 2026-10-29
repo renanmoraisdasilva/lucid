@@ -1,78 +1,204 @@
-"""Temporary chat endpoint (replaced by the SSE path in Milestone 4)."""
+"""Streaming chat endpoints: send, retry, stop.
 
-from fastapi import APIRouter
+The response is SSE. Errors detected before the stream starts (404, 409, 422)
+use the normal JSON error envelope; anything after `meta` is an `error` event.
+"""
 
-from lucid.api.deps import ProviderDep, SessionDep, SystemPromptDep
-from lucid.api.errors import ApiError
-from lucid.api.schemas import ChatRequest, ChatResponse, UsageOut
-from lucid.application.chat import ConversationNotFoundError, send_message_once
-from lucid.config import get_settings
-from lucid.domain.errors import (
-    ProviderError,
-    ProviderRateLimited,
-    ProviderTimeout,
+import uuid
+from collections.abc import AsyncIterator
+
+from fastapi import APIRouter, status
+from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from lucid.api.deps import (
+    ProviderDep,
+    RegistryDep,
+    SessionDep,
+    SessionFactoryDep,
+    SystemPromptDep,
 )
-from lucid.domain.provider import Usage
+from lucid.api.errors import ApiError
+from lucid.api.schemas import ChatRequest, StopGenerationResponse
+from lucid.api.sse import SSE_HEADERS, SSE_MEDIA_TYPE, encode_event
+from lucid.application.chat_service import (
+    ConversationNotFoundError,
+    GenerationAlreadyCompletedError,
+    GenerationInProgressError,
+    MessageNotFoundError,
+    PreparedGeneration,
+    prepare_message,
+    prepare_retry,
+    stream_generation,
+)
+from lucid.application.registry import GenerationRegistry
+from lucid.config import get_settings
+from lucid.domain.enums import AttemptStatus
+from lucid.domain.provider import ChatProvider
+from lucid.persistence.repositories import AttemptRepository
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(tags=["chat"])
 
 
-@router.post("", response_model=ChatResponse)
+@router.post("/chat")
 async def send_message_endpoint(
     payload: ChatRequest,
     session: SessionDep,
     provider: ProviderDep,
     system_prompt: SystemPromptDep,
-) -> ChatResponse:
-    """Send one message and return the complete assistant reply.
-
-    Streaming replaces this in Milestone 4; the frontend never consumes it.
-    """
+    session_factory: SessionFactoryDep,
+    registry: RegistryDep,
+) -> StreamingResponse:
+    """Send a message and stream the reply. Creates the conversation if needed."""
     settings = get_settings()
     try:
-        outcome = await send_message_once(
+        prepared = await prepare_message(
             session,
-            provider=provider,
-            system_prompt=system_prompt,
-            model=settings.gemini_model,
-            max_output_tokens=settings.gemini_max_output_tokens,
             content=payload.content,
             conversation_id=payload.conversation_id,
+            provider_name=provider.name,
+            model=settings.gemini_model,
         )
     except ConversationNotFoundError as error:
-        raise ApiError(
-            "conversation_not_found", "That conversation does not exist.", status_code=404
-        ) from error
-    except ProviderRateLimited as error:
-        raise _provider_api_error(error, status_code=429) from error
-    except ProviderTimeout as error:
-        raise _provider_api_error(error, status_code=504) from error
-    except ProviderError as error:
-        raise _provider_api_error(error, status_code=502) from error
+        raise _conversation_not_found() from error
+    except GenerationInProgressError as error:
+        raise _generation_in_progress(error) from error
 
-    return ChatResponse(
-        conversation_id=outcome.conversation.id,
-        user_message_id=outcome.user_message.id,
-        attempt_id=outcome.attempt.id,
-        assistant_message_id=(
-            outcome.assistant_message.id if outcome.assistant_message is not None else None
-        ),
-        attempt_status=outcome.attempt_status,
-        content=outcome.content,
-        usage=_usage_out(outcome.usage),
+    return _stream_response(
+        prepared,
+        provider=provider,
+        system_prompt=system_prompt,
+        session_factory=session_factory,
+        registry=registry,
     )
 
 
-def _provider_api_error(error: ProviderError, *, status_code: int) -> ApiError:
-    return ApiError(error.code, str(error), status_code=status_code)
+@router.post("/conversations/{conversation_id}/messages/{message_id}/retry")
+async def retry_message_endpoint(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    session: SessionDep,
+    provider: ProviderDep,
+    system_prompt: SystemPromptDep,
+    session_factory: SessionFactoryDep,
+    registry: RegistryDep,
+) -> StreamingResponse:
+    """Retry generation for an existing user message."""
+    settings = get_settings()
+    try:
+        prepared = await prepare_retry(
+            session,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            provider_name=provider.name,
+            model=settings.gemini_model,
+        )
+    except ConversationNotFoundError as error:
+        raise _conversation_not_found() from error
+    except MessageNotFoundError as error:
+        raise ApiError(
+            "message_not_found",
+            "That message does not exist in this conversation.",
+            status_code=404,
+        ) from error
+    except GenerationAlreadyCompletedError as error:
+        raise ApiError(
+            "generation_already_completed",
+            "That message already has a completed response.",
+            status_code=409,
+        ) from error
+    except GenerationInProgressError as error:
+        raise _generation_in_progress(error) from error
+
+    return _stream_response(
+        prepared,
+        provider=provider,
+        system_prompt=system_prompt,
+        session_factory=session_factory,
+        registry=registry,
+    )
 
 
-def _usage_out(usage: Usage | None) -> UsageOut | None:
-    if usage is None:
-        return None
-    return UsageOut(
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
-        thought_tokens=usage.thought_tokens,
-        total_tokens=usage.total_tokens,
+@router.post(
+    "/conversations/{conversation_id}/generations/{attempt_id}/stop",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=StopGenerationResponse,
+)
+async def stop_generation_endpoint(
+    conversation_id: uuid.UUID,
+    attempt_id: uuid.UUID,
+    session: SessionDep,
+    registry: RegistryDep,
+) -> StopGenerationResponse:
+    """Ask the active generation to stop. Idempotent for terminal attempts."""
+    attempts = AttemptRepository(session)
+    attempt = await attempts.get(attempt_id)
+    if attempt is None or attempt.conversation_id != conversation_id:
+        raise ApiError("attempt_not_found", "That generation does not exist.", status_code=404)
+
+    if attempt.status != AttemptStatus.IN_PROGRESS.value:
+        return StopGenerationResponse(
+            attempt_id=attempt_id,
+            status=AttemptStatus(attempt.status),
+            stop_requested=False,
+        )
+
+    tracked = await registry.request_stop(attempt_id)
+    if not tracked:
+        # No task in this process (for example after a restart): close it here.
+        await attempts.finalize(
+            attempt_id,
+            status=AttemptStatus.INTERRUPTED,
+            error_code="cancelled_untracked",
+        )
+        await session.commit()
+        return StopGenerationResponse(
+            attempt_id=attempt_id,
+            status=AttemptStatus.INTERRUPTED,
+            stop_requested=True,
+        )
+
+    return StopGenerationResponse(
+        attempt_id=attempt_id,
+        status=AttemptStatus.IN_PROGRESS,
+        stop_requested=True,
+    )
+
+
+def _stream_response(
+    prepared: PreparedGeneration,
+    *,
+    provider: ChatProvider,
+    system_prompt: str,
+    session_factory: async_sessionmaker[AsyncSession],
+    registry: GenerationRegistry,
+) -> StreamingResponse:
+    settings = get_settings()
+    events = stream_generation(
+        prepared,
+        session_factory=session_factory,
+        provider=provider,
+        system_prompt=system_prompt,
+        model=settings.gemini_model,
+        max_output_tokens=settings.gemini_max_output_tokens,
+        registry=registry,
+    )
+
+    async def frames() -> AsyncIterator[str]:
+        async for event, data in events:
+            yield encode_event(event, data)
+
+    return StreamingResponse(frames(), media_type=SSE_MEDIA_TYPE, headers=SSE_HEADERS)
+
+
+def _conversation_not_found() -> ApiError:
+    return ApiError("conversation_not_found", "That conversation does not exist.", status_code=404)
+
+
+def _generation_in_progress(error: GenerationInProgressError) -> ApiError:
+    return ApiError(
+        "generation_in_progress",
+        str(error),
+        status_code=409,
+        details={"attempt_id": str(error.attempt_id)},
     )
