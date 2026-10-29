@@ -104,6 +104,11 @@ class Settings(BaseSettings):
 
     reconcile_on_startup: bool = True
 
+    pricing_input_usd_per_million: float | None = Field(default=None, ge=0)
+    pricing_output_usd_per_million: float | None = Field(default=None, ge=0)
+    pricing_free_tier: bool = True
+    telemetry_retention_days: int = Field(default=30, ge=1, le=365)
+
     system_prompt_path: Path = Field(default=BACKEND_DIR / "prompts" / "system.md")
 
     @property

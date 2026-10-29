@@ -50,7 +50,12 @@ Show aggregate metrics for the selected date range:
 - Total output tokens
 - Estimated API cost
 
-A **generation attempt** is one request to the model. Retries and explicit regeneration attempts are separate attempts. Calculate success rate using completed, failed, and interrupted attempts as the denominator; exclude attempts that have not reached a terminal state.
+A **generation attempt** is one user-visible attempt, stored once in
+`generation_attempts`. A manual Retry creates a new attempt; the bounded
+automatic retries defined in ADR-005 happen inside the attempt and are reflected
+by a retry count, not by extra rows. Calculate success rate using completed,
+failed, and interrupted attempts as the denominator; exclude attempts that have
+not reached a terminal state.
 
 ### 4.2 Trends
 
@@ -93,7 +98,9 @@ Show one estimated API cost total for the selected date range.
 
 ## 5. Generation tracking
 
-Record one telemetry record per generation attempt, including retries and regeneration attempts.
+Record one telemetry record per generation attempt, including manual retries.
+Automatic retries are counted on the attempt (`retry_count`), not recorded as
+separate attempts; regeneration is out of scope for the MVP.
 
 ### 5.1 Required fields
 
@@ -117,6 +124,12 @@ Capture at minimum:
 
 Do not assume the provider exposes every field. Persist unavailable values as null and reflect missing data honestly in the dashboard.
 
+**Storage (confirmed 2026-10-29):** the fields that the original model does not
+carry map to four nullable columns on `generation_attempts`: `first_token_at`,
+`http_status`, `retry_count` (automatic retries inside the attempt), and
+`context_tokens`. Total duration is derived from `started_at` and `completed_at`.
+Rows written before the migration keep null and render as unavailable.
+
 ### 5.2 Attempt lifecycle
 
 - Create the attempt record when model generation begins.
@@ -125,7 +138,9 @@ Do not assume the provider exposes every field. Persist unavailable values as nu
 - Mark it `failed` when generation terminates due to an error.
 - Mark it `interrupted` when generation is stopped or otherwise intentionally cut short.
 - Prevent attempts from remaining indefinitely in a non-terminal state after a process-level failure; use a safe reconciliation or timeout strategy.
-- Retries must be distinguishable from the original attempt. Do not collapse multiple attempts into one record.
+- Manual retries must be distinguishable from the original attempt (`attempt_no`).
+  Do not collapse multiple manual attempts into one record. Automatic retries
+  inside an attempt are visible through `retry_count`.
 - A partial assistant response may be preserved according to chat behavior, but telemetry must accurately reflect that the generation was interrupted or failed.
 
 ### 5.3 Privacy and diagnostics
@@ -153,7 +168,8 @@ Selecting a row opens a **compact details** view containing status, model, input
 
 Do not include raw request/response payloads, full prompt content, or a detailed event timeline.
 
-**Display limit:** Not explicitly selected. A reasonable provisional default is the latest 25 attempts; pagination can be deferred unless actual usage warrants it.
+**Display limit:** the latest **25** attempts. Confirmed during the mockup review
+on 2026-10-29; pagination remains deferred.
 
 ## 7. Telemetry retention and cleanup
 
@@ -162,6 +178,9 @@ Do not include raw request/response payloads, full prompt content, or a detailed
 - Do not delete conversations or chat messages as part of telemetry cleanup.
 - Ensure cleanup respects relationships and does not leave invalid references.
 - Retention applies to telemetry and generation-detail records, not conversation history.
+- After telemetry cleanup, the transcript keeps its message content, but the attempt-derived
+  usage badge and completed/failed/interrupted marker are no longer available. This is
+  accepted: retention removes telemetry, not conversation history.
 
 ## 8. Error, loading, and empty states
 
@@ -221,6 +240,28 @@ Prefer simple SQL aggregation in PostgreSQL for the initial single-user workload
 - No full prompts, message bodies, or raw provider payloads are stored in telemetry.
 - The dashboard remains useful when there is no data or provider metadata is unavailable.
 
-## 12. Open implementation detail
+## 12. Mockup review decisions (2026-10-29)
 
-The Recent Generations display limit was not selected during the interview. Use 25 as a provisional default and revisit after the first implementation.
+Confirmed after reviewing `../screen-mockups/dashboard.html` against this spec and
+ADR-005. The mockup was rewritten to match these decisions.
+
+| # | Decision | Outcome |
+|---|---|---|
+| 1 | Visual language | Reuse `theme.js` tokens and `shell.js` chrome; the dashboard is not a second design system. |
+| 2 | Navigation | A **Dashboard** row in the shared sidebar above the conversation groups. No mobile bottom bar; mobile keeps the off-canvas sidebar. |
+| 3 | Section scope | Overview metrics, trends (tokens, TTFT, duration, reliability), token usage and one cost estimate, recent 25 attempts with compact details. Context-budget/compaction, throughput histogram, cost-per-run, cached tokens, export, model picker, search/filter, and a trace viewer are removed. |
+| 4 | Overview metrics | All seven metrics in one row: conversations, user messages, attempts, success rate, input tokens, output tokens, estimated cost. |
+| 5 | Conversation count | Conversations with at least one message in the range, with a "new in range" sublabel. |
+| 6 | Comparisons | No "vs previous period" deltas in the initial version. |
+| 7 | Attempt semantics | Automatic retries stay inside one attempt row and are shown as a count; manual Retry creates a new row. Matches ADR-005. |
+| 8 | New columns | `first_token_at`, `http_status`, `retry_count`, `context_tokens`, all nullable. |
+| 9 | Recent generations | Time, conversation reference, status, model, input/output tokens, TTFT, duration, attempt. No attempt id or trace action. |
+| 10 | Details view | A compact modal, same pattern as the delete-conversation dialog. |
+| 11 | Status labels | `Completed`, `Failed`, `Interrupted`; interrupted keeps the amber marker. |
+| 12 | Cost | Estimated at configured list price, labelled as an estimate, with an explicit note that the free tier bills nothing. |
+| 13 | Latency charts | Median and p95 for TTFT and total duration; p95 only where a bucket has at least 20 attempts, otherwise the sample count is shown. |
+| 14 | Buckets | Hourly for 24 hours, daily for 7 and 30 days. |
+| 15 | Refresh | Every 20 seconds, paused while the tab is hidden, plus a manual refresh action. A failed refresh keeps the last good data and marks it stale. |
+| 16 | States | Dedicated empty, loading, stale-refresh, request-failure, partial-usage, thin-sample, and missing-pricing presentations. |
+
+The Recent Generations limit is now **25** and is no longer an open detail.

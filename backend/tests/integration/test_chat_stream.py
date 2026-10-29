@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.domain.enums import AttemptStatus, Role
 from lucid.domain.errors import ProviderRateLimited
+from lucid.domain.outcome import AttemptOutcome
 from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
@@ -181,7 +182,8 @@ async def test_retry_reuses_the_user_message(
             model="fake-model",
         )
         await AttemptRepository(session).finalize(
-            failed.id, status=AttemptStatus.FAILED, error_code="provider_unavailable"
+            failed.id,
+            AttemptOutcome(status=AttemptStatus.FAILED, error_code="provider_unavailable"),
         )
         await session.commit()
         conversation_id = conversation.id

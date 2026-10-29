@@ -1,28 +1,15 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  ApiError,
-  deleteConversation,
-  getConversation,
-  getModels,
-  listConversations,
-  stopGeneration,
-  streamChat,
-  streamRetry,
-} from "../api/client";
-import type { Message, ModelOption, StreamEvent } from "../api/types";
+import { deleteConversation, getConversation, getModels, listConversations } from "../api/client";
+import type { Message, ModelOption } from "../api/types";
+import type { ChatError } from "../lib/chat-types";
 import { groupConversations, type ConversationGroup } from "../lib/grouping";
+import { useChatStream } from "./chat/useChatStream";
 
 const MODEL_STORAGE_KEY = "lucid.model";
 
-export interface ChatError {
-  code: string;
-  message: string;
-  retryable: boolean;
-  messageId: string | null;
-  retryAfterSeconds: number | null;
-}
+export type { ChatError } from "../lib/chat-types";
 
 export interface ChatController {
   groups: ConversationGroup[];
@@ -50,27 +37,13 @@ export interface ChatController {
 export function useChat(): ChatController {
   const queryClient = useQueryClient();
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [pendingUser, setPendingUser] = useState<string | null>(null);
-  const [streamingText, setStreamingText] = useState("");
-  const [error, setError] = useState<ChatError | null>(null);
-  const [streaming, setStreaming] = useState(false);
-  const [stopping, setStopping] = useState(false);
-
-  const conversationIdRef = useRef<string | null>(null);
-  const attemptRef = useRef<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const mountedRef = useRef(true);
+  const currentIdRef = useRef(currentId);
+  const stream = useChatStream({ onConversation: setCurrentId });
+  const resetStream = stream.reset;
 
   useEffect(() => {
-    // StrictMode runs mount -> cleanup -> mount in development, so the flag has
-    // to be restored here; otherwise this instance believes it is unmounted for
-    // the rest of the session and never clears the streaming state.
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      abortRef.current?.abort();
-    };
-  }, []);
+    currentIdRef.current = currentId;
+  }, [currentId]);
 
   const conversationsQuery = useInfiniteQuery({
     queryKey: ["conversations"],
@@ -84,7 +57,7 @@ export function useChat(): ChatController {
   const conversationQuery = useQuery({
     queryKey: ["conversation", currentId],
     queryFn: ({ signal }) => getConversation(currentId as string, signal),
-    enabled: currentId !== null && !streaming,
+    enabled: currentId !== null && !stream.streaming,
     retry: false,
   });
 
@@ -117,192 +90,49 @@ export function useChat(): ChatController {
 
   const messages = useMemo(() => {
     const persisted = conversationQuery.data?.messages ?? [];
-    if (pendingUser === null) {
+    if (stream.pendingUser === null) {
       return persisted;
     }
     const optimistic: Message = {
       id: "optimistic",
       role: "user",
       seq: Number.MAX_SAFE_INTEGER,
-      content: pendingUser,
+      content: stream.pendingUser,
       created_at: new Date().toISOString(),
       attempt: null,
     };
     return [...persisted, optimistic];
-  }, [conversationQuery.data, pendingUser]);
+  }, [conversationQuery.data, stream.pendingUser]);
 
-  const invalidate = useCallback(
-    async (conversationId: string | null) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["conversations"] }),
-        conversationId === null
-          ? Promise.resolve()
-          : queryClient.invalidateQueries({ queryKey: ["conversation", conversationId] }),
-      ]);
-    },
-    [queryClient],
-  );
-
-  const runStream = useCallback(
-    async (events: AsyncGenerator<StreamEvent>, optimisticUserText: string | null) => {
-      setStreaming(true);
-      setStopping(false);
-      setError(null);
-      setStreamingText("");
-      if (optimisticUserText !== null) {
-        setPendingUser(optimisticUserText);
-      }
-      attemptRef.current = null;
-
-      let text = "";
-      let failed: ChatError | null = null;
-
-      try {
-        for await (const event of events) {
-          if (event.type === "meta") {
-            conversationIdRef.current = event.data.conversation_id;
-            setCurrentId(event.data.conversation_id);
-            attemptRef.current = event.data.attempt_id;
-          } else if (event.type === "delta") {
-            text += event.data.text;
-            setStreamingText(text);
-          } else if (event.type === "error") {
-            failed = {
-              code: event.data.code,
-              message: event.data.message,
-              retryable: event.data.retryable,
-              messageId: null,
-              retryAfterSeconds: event.data.retry_after_seconds ?? null,
-            };
-          }
-        }
-      } catch (caught) {
-        if (!(caught instanceof DOMException && caught.name === "AbortError")) {
-          failed = {
-            code: caught instanceof ApiError ? caught.code : "stream_failed",
-            message: caught instanceof Error ? caught.message : "The response stream failed.",
-            retryable: true,
-            messageId: null,
-            retryAfterSeconds: null,
-          };
-        }
-      } finally {
-        if (mountedRef.current) {
-          setStreaming(false);
-          setStopping(false);
-          setStreamingText("");
-          setPendingUser(null);
-          attemptRef.current = null;
-        }
-      }
-
-      if (!mountedRef.current) {
-        return;
-      }
-
-      await invalidate(conversationIdRef.current);
-      if (failed) {
-        setError(failed);
-      }
-    },
-    [invalidate],
-  );
+  const sendStream = stream.send;
+  const retryStream = stream.retry;
 
   const send = useCallback(
-    async (content: string) => {
-      if (streaming || !content.trim()) {
-        return;
-      }
-      const controller = new AbortController();
-      abortRef.current = controller;
-      try {
-        const events = await streamChat({
-          conversationId: conversationIdRef.current,
-          content,
-          modelId: effectiveModelId,
-          signal: controller.signal,
-        });
-        await runStream(events, content);
-      } catch (caught) {
-        if (mountedRef.current) {
-          setError({
-            code: caught instanceof ApiError ? caught.code : "request_failed",
-            message: caught instanceof Error ? caught.message : "The message could not be sent.",
-            retryable: false,
-            messageId: null,
-            retryAfterSeconds: null,
-          });
-        }
-      }
-    },
-    [effectiveModelId, runStream, streaming],
+    (content: string) => sendStream(content, effectiveModelId),
+    [effectiveModelId, sendStream],
   );
 
   const retry = useCallback(
-    async (messageId: string) => {
-      const id = conversationIdRef.current;
-      if (!id || streaming) {
-        return;
-      }
-      const controller = new AbortController();
-      abortRef.current = controller;
-      try {
-        const events = await streamRetry({
-          conversationId: id,
-          messageId,
-          modelId: effectiveModelId,
-          signal: controller.signal,
-        });
-        await runStream(events, null);
-      } catch (caught) {
-        if (mountedRef.current) {
-          setError({
-            code: caught instanceof ApiError ? caught.code : "retry_failed",
-            message: caught instanceof Error ? caught.message : "Retry failed.",
-            retryable: true,
-            messageId,
-            retryAfterSeconds: null,
-          });
-        }
-      }
-    },
-    [effectiveModelId, runStream, streaming],
+    (messageId: string) => retryStream(messageId, effectiveModelId),
+    [effectiveModelId, retryStream],
   );
 
-  const stop = useCallback(async () => {
-    const id = conversationIdRef.current;
-    const attemptId = attemptRef.current;
-    if (!id || !attemptId || stopping) {
-      return;
-    }
-    setStopping(true);
-    try {
-      await stopGeneration(id, attemptId);
-    } catch {
-      // The stream still ends; the server closes it either way.
-    }
-  }, [stopping]);
-
-  const openConversation = useCallback(async (id: string) => {
-    conversationIdRef.current = id;
-    setCurrentId(id);
-    setPendingUser(null);
-    setStreamingText("");
-    setError(null);
-  }, []);
-
   const newChat = useCallback(() => {
-    conversationIdRef.current = null;
     setCurrentId(null);
-    setPendingUser(null);
-    setStreamingText("");
-    setError(null);
-  }, []);
+    resetStream(null);
+  }, [resetStream]);
 
+  const openConversation = useCallback(
+    async (id: string) => {
+      setCurrentId(id);
+      resetStream(id);
+    },
+    [resetStream],
+  );
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteConversation(id),
     onSuccess: async (_result, id) => {
-      if (conversationIdRef.current === id) {
+      if (currentIdRef.current === id) {
         newChat();
       }
       await queryClient.invalidateQueries({ queryKey: ["conversations"] });
@@ -328,10 +158,10 @@ export function useChat(): ChatController {
     hasConversations: conversations.length > 0,
     currentId,
     messages,
-    streamingText,
-    error,
-    streaming,
-    stopping,
+    streamingText: stream.streamingText,
+    error: stream.error,
+    streaming: stream.streaming,
+    stopping: stream.stopping,
     hasMore: conversationsQuery.hasNextPage,
     loadingMore: conversationsQuery.isFetchingNextPage,
     models,
@@ -340,7 +170,7 @@ export function useChat(): ChatController {
     loadMore,
     send,
     retry,
-    stop,
+    stop: stream.stop,
     openConversation,
     newChat,
     removeConversation,

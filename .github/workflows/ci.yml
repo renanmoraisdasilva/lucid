@@ -57,7 +57,12 @@ jobs:
         run: uv run alembic upgrade head
 
       - name: Test
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=lucid --cov-branch --cov-fail-under=80
+
+      - name: Complexity report
+        run: |
+          uv run radon cc src -s -a
+          uv run radon mi src -s
 
   frontend:
     name: Frontend (eslint, tsc, vitest)
@@ -87,7 +92,7 @@ jobs:
         run: npm run typecheck
 
       - name: Test
-        run: npm test
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build

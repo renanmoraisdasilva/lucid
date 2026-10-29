@@ -7,6 +7,7 @@ provider boundary means the application never learns which of them is in use.
 
 import json
 from collections.abc import AsyncIterator, Mapping
+from dataclasses import dataclass
 from typing import Any, cast
 
 import httpx
@@ -56,7 +57,37 @@ class OpenAICompatibleProvider:
             await self._client.aclose()
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[ProviderEvent]:
-        payload: dict[str, Any] = {
+        state = _StreamState()
+        try:
+            async with self._client.stream(
+                "POST",
+                self._endpoint,
+                json=self._payload(request),
+                headers={"Authorization": f"Bearer {self._api_key}"},
+            ) as response:
+                if response.status_code >= 400:
+                    body = (await response.aread()).decode("utf-8", "replace")
+                    raise classify_status(response.status_code, body, response.headers)
+
+                async for line in response.aiter_lines():
+                    texts = state.feed(line)
+                    if texts is None:
+                        break
+                    for text in texts:
+                        yield TextDelta(text=text)
+        except ProviderError:
+            raise
+        except httpx.TimeoutException as error:
+            raise ProviderTimeout(detail=str(error)) from error
+        except httpx.HTTPError as error:
+            raise ProviderUnavailable(detail=str(error)) from error
+        except json.JSONDecodeError as error:
+            raise ProviderStreamError(detail="malformed stream frame") from error
+
+        yield StreamCompleted(usage=state.usage)
+
+    def _payload(self, request: GenerationRequest) -> dict[str, Any]:
+        return {
             "model": request.model,
             "messages": [
                 {"role": "system", "content": request.system_prompt},
@@ -70,43 +101,28 @@ class OpenAICompatibleProvider:
             "stream_options": {"include_usage": True},
         }
 
-        usage: Usage | None = None
-        try:
-            async with self._client.stream(
-                "POST",
-                self._endpoint,
-                json=payload,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-            ) as response:
-                if response.status_code >= 400:
-                    body = (await response.aread()).decode("utf-8", "replace")
-                    raise classify_status(response.status_code, body, response.headers)
 
-                async for line in response.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data = line.removeprefix("data:").strip()
-                    if not data:
-                        continue
-                    if data == "[DONE]":
-                        break
+@dataclass
+class _StreamState:
+    """Accumulates usage while turning SSE lines into text deltas."""
 
-                    chunk = json.loads(data)
-                    for text in _texts(chunk):
-                        yield TextDelta(text=text)
-                    raw_usage = chunk.get("usage")
-                    if isinstance(raw_usage, Mapping):
-                        usage = map_usage(cast("Mapping[str, Any]", raw_usage))
-        except ProviderError:
-            raise
-        except httpx.TimeoutException as error:
-            raise ProviderTimeout(detail=str(error)) from error
-        except httpx.HTTPError as error:
-            raise ProviderUnavailable(detail=str(error)) from error
-        except json.JSONDecodeError as error:
-            raise ProviderStreamError(detail="malformed stream frame") from error
+    usage: Usage | None = None
 
-        yield StreamCompleted(usage=usage)
+    def feed(self, line: str) -> list[str] | None:
+        """Text deltas for this line, or ``None`` when the provider is done."""
+        if not line.startswith("data:"):
+            return []
+        data = line.removeprefix("data:").strip()
+        if not data:
+            return []
+        if data == "[DONE]":
+            return None
+
+        chunk = json.loads(data)
+        raw_usage = chunk.get("usage")
+        if isinstance(raw_usage, Mapping):
+            self.usage = map_usage(cast("Mapping[str, Any]", raw_usage))
+        return _texts(chunk)
 
 
 def classify_status(status: int, body: str, headers: Mapping[str, str]) -> ProviderError:

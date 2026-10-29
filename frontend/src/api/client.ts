@@ -2,6 +2,8 @@ import { parseSseFrames } from "./sse";
 import type {
   ConversationDetail,
   ConversationListResponse,
+  DashboardData,
+  DashboardRange,
   ModelsResponse,
   StreamEvent,
 } from "./types";
@@ -60,6 +62,11 @@ export function getModels(signal?: AbortSignal): Promise<ModelsResponse> {
 
 export function getConversation(id: string, signal?: AbortSignal): Promise<ConversationDetail> {
   return requestJson<ConversationDetail>(`/api/conversations/${id}`, { signal });
+}
+
+export function getDashboard(range: DashboardRange, signal?: AbortSignal): Promise<DashboardData> {
+  const params = new URLSearchParams({ range });
+  return requestJson<DashboardData>(`/api/dashboard?${params.toString()}`, { signal });
 }
 
 export async function deleteConversation(id: string): Promise<void> {

@@ -12,6 +12,13 @@ __pycache__/
 .mypy_cache/
 .pyright/
 
+# Coverage
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
+coverage/
+
 # Node / frontend
 node_modules/
 dist/

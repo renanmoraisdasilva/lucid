@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucid — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script src="theme.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background-color: #171512; color: #f3eee5; font-family: 'Geist', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2e2922; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3e372e; }
+
+  /* Chart labels are drawn in viewBox units, so they shrink with the chart.
+     Enlarge them on narrow screens to keep them legible. */
+  @media (max-width: 1023px) {
+    svg.chart-wide text { font-size: 14px; }
+  }
+  @media (max-width: 767px) {
+    svg.chart-wide text { font-size: 18px; }
+  }
+  @media (max-width: 479px) {
+    svg.chart-wide text { font-size: 26px; }
+    svg.chart-half text { font-size: 14px; }
+  }
+</style>
+</head>
+<body class="bg-surface-bg text-text-primary antialiased selection:bg-amber-accent/25 selection:text-white h-screen flex flex-col overflow-hidden">
+<div class="w-full flex-1 flex h-screen overflow-hidden relative">
+  <div id="sidebar-mount" class="contents"></div>
+
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-surface-bg relative">
+    <div id="header-mount"></div>
+
+    <main class="flex-1 overflow-y-auto">
+      <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-5 sm:py-6 space-y-8">
+
+        <!-- Toolbar: range, last refresh, manual refresh -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="inline-flex items-center bg-surface-elevated/60 border border-surface-border rounded-lg p-0.5" role="group" aria-label="Date range">
+              <button type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-md text-[12px] text-text-secondary hover:text-text-primary transition-colors">24h</button>
+              <button type="button" aria-pressed="true" class="px-2.5 py-1.5 rounded-md text-[12px] bg-surface-hover text-text-primary font-medium shadow-sm">7 days</button>
+              <button type="button" aria-pressed="false" class="px-2.5 py-1.5 rounded-md text-[12px] text-text-secondary hover:text-text-primary transition-colors">30 days</button>
+            </div>
+            <span class="font-mono text-[11px] text-text-muted">Oct 23 – Oct 29</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[11px] text-text-muted">Updated 12s ago<span class="text-text-muted/50"> · </span>auto 20s</span>
+            <button type="button" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-surface-elevated border border-surface-border-subtle text-[12px] font-medium text-text-primary hover:bg-surface-hover transition-colors">
+              <span class="material-symbols-outlined text-[16px] text-text-secondary">refresh</span>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- 01. OVERVIEW -->
+        <section id="overview" class="space-y-3">
+          <div class="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">01 / Overview</span>
+              <h2 class="mt-1 text-[15px] sm:text-[16px] font-semibold tracking-tight text-text-primary">Last 7 days</h2>
+            </div>
+            <span class="text-[11px] text-text-muted">Aggregates for the selected range</span>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2.5">
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">Conversations</span>
+                <span class="material-symbols-outlined text-[15px] text-text-muted">forum</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight tabular-nums">18</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">7 new in range</div>
+            </div>
+
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">User messages</span>
+                <span class="material-symbols-outlined text-[15px] text-text-muted">chat_bubble</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight tabular-nums">121</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">6.7 per conversation</div>
+            </div>
+
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">Attempts</span>
+                <span class="material-symbols-outlined text-[15px] text-text-muted">bolt</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight tabular-nums">138</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">17 manual retries</div>
+            </div>
+
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">Success rate</span>
+                <span class="material-symbols-outlined text-[15px] text-amber-accent">verified</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight text-amber-accent tabular-nums">92.8%</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">128 of 138 completed</div>
+            </div>
+
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">Input tokens</span>
+                <span class="material-symbols-outlined text-[15px] text-text-muted">input</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight tabular-nums">283.1k</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">partial · 3 missing</div>
+            </div>
+
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">Output tokens</span>
+                <span class="material-symbols-outlined text-[15px] text-text-muted">output</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight tabular-nums">83.3k</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">partial · 3 missing</div>
+            </div>
+
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted leading-tight">Estimated cost</span>
+                <span class="material-symbols-outlined text-[15px] text-amber-accent">payments</span>
+              </div>
+              <div class="mt-2 text-[24px] leading-none font-semibold tracking-tight text-amber-accent tabular-nums">$0.29</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">list price · free tier</div>
+            </div>
+          </div>
+
+          <p class="flex items-start gap-1.5 text-[11px] leading-relaxed text-text-muted">
+            <span class="material-symbols-outlined text-[13px] mt-px">info</span>
+            <span>Token totals are partial: 3 attempts returned no usage metadata. Nothing is estimated in their place.</span>
+          </p>
+        </section>
+
+        <!-- 02. TRENDS -->
+        <section id="trends" class="space-y-3">
+          <div class="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">02 / Trends</span>
+              <h2 class="mt-1 text-[15px] sm:text-[16px] font-semibold tracking-tight text-text-primary">Tokens, latency, and reliability</h2>
+            </div>
+            <span class="text-[11px] text-text-muted">Hourly for 24h · daily for 7 and 30 days</span>
+          </div>
+
+          <!-- Token usage over time -->
+          <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+              <div>
+                <h3 class="text-[14px] font-semibold text-text-primary">Token usage</h3>
+                <p class="mt-0.5 text-[11px] text-text-secondary">Input and output tokens per day</p>
+              </div>
+              <div class="flex items-center gap-4 text-[11px]">
+                <span class="flex items-center gap-1.5 text-text-primary">
+                  <span class="w-2.5 h-0.5 rounded-full bg-amber-accent"></span>
+                  Input <span class="font-mono text-text-muted">283.1k</span>
+                </span>
+                <span class="flex items-center gap-1.5 text-text-secondary">
+                  <span class="w-2.5 h-0.5 rounded-full bg-text-secondary"></span>
+                  Output <span class="font-mono text-text-muted">83.3k</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="mt-4 w-full h-48 sm:h-56">
+              <svg class="chart-wide w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 1000 220" role="img" aria-label="Input and output tokens per day from Oct 23 to Oct 29">
+                <defs>
+                  <linearGradient id="tokenGrad" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#e9a34b" stop-opacity="0.22"></stop>
+                    <stop offset="100%" stop-color="#e9a34b" stop-opacity="0"></stop>
+                  </linearGradient>
+                </defs>
+
+                <!-- Grid -->
+                <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="64" x2="960" y1="128.5" y2="128.5"></line>
+                <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="64" x2="960" y1="81" y2="81"></line>
+                <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="64" x2="960" y1="33.5" y2="33.5"></line>
+                <line stroke="#38332b" stroke-width="1" x1="64" x2="960" y1="176" y2="176"></line>
+
+                <!-- No-attempts marker for Oct 26 -->
+                <line stroke="#736b60" stroke-dasharray="2 4" stroke-opacity="0.7" stroke-width="1" x1="512" x2="512" y1="24" y2="176"></line>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" text-anchor="middle" x="512" y="18">no attempts</text>
+
+                <!-- Input area -->
+                <polygon fill="url(#tokenGrad)" points="64,70.7 213,123 363,113.1 512,176 661,76.6 811,33.9 960,100.8 960,176 64,176"></polygon>
+                <polyline fill="none" stroke="#e9a34b" stroke-linejoin="round" stroke-width="2" points="64,70.7 213,123 363,113.1 512,176 661,76.6 811,33.9 960,100.8"></polyline>
+
+                <!-- Output line -->
+                <polyline fill="none" stroke="#a8a094" stroke-dasharray="3 3" stroke-width="1.5" points="64,144.1 213,160 363,156.6 512,176 661,147.3 811,135 960,154.7"></polyline>
+
+                <!-- Axis labels -->
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="8" y="132">25k</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="8" y="85">50k</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="8" y="37">75k</text>
+
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="64" y="196">Oct 23</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="213" y="196">Oct 24</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="363" y="196">Oct 25</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="512" y="196">Oct 26</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="661" y="196">Oct 27</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="811" y="196">Oct 28</text>
+                <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="960" y="196">Oct 29</text>
+              </svg>
+            </div>
+            <p class="mt-2 text-[11px] text-text-muted">Oct 26 had no attempts, so its usage is a real zero rather than missing data.</p>
+          </div>
+
+          <!-- Latency charts -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <!-- TTFT -->
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-4 sm:p-5">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 class="text-[14px] font-semibold text-text-primary">Time to first token</h3>
+                  <p class="mt-0.5 text-[11px] text-text-secondary">Median and p95 per day (ms)</p>
+                </div>
+                <div class="flex items-center gap-3 text-[11px]">
+                  <span class="flex items-center gap-1.5 text-text-primary"><span class="w-2.5 h-0.5 rounded-full bg-amber-accent"></span>p50</span>
+                  <span class="flex items-center gap-1.5 text-text-secondary"><span class="w-2.5 h-0.5 rounded-full bg-text-secondary"></span>p95</span>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-surface-border bg-surface-bg/50 px-3 py-2 text-[11px]">
+                <span class="text-text-muted">Period median</span>
+                <span class="font-mono text-text-primary">483 ms</span>
+                <span class="text-text-muted">p95</span>
+                <span class="font-mono text-text-primary">1.04 s</span>
+                <span class="text-text-muted ml-auto">133 samples</span>
+              </div>
+
+              <div class="mt-3 w-full h-44">
+                <svg class="chart-half w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 520 200" role="img" aria-label="Median and p95 time to first token per day">
+                  <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="44" x2="500" y1="126" y2="126"></line>
+                  <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="44" x2="500" y1="92" y2="92"></line>
+                  <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="44" x2="500" y1="58" y2="58"></line>
+                  <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="44" x2="500" y1="24" y2="24"></line>
+                  <line stroke="#38332b" stroke-width="1" x1="44" x2="500" y1="160" y2="160"></line>
+
+                  <!-- Gap over Oct 26 (no attempts) -->
+                  <polyline fill="none" stroke="#e9a34b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="44,111.3 120,115.2 196,106.7"></polyline>
+                  <polyline fill="none" stroke="#e9a34b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="348,101.6 424,107.3 500,103.3"></polyline>
+
+                  <!-- p95 only where the bucket has at least 20 attempts -->
+                  <polyline fill="none" stroke="#a8a094" stroke-dasharray="3 3" stroke-linecap="round" stroke-width="1.5" points="44,73.9 120,87.5 196,59.2"></polyline>
+                  <polyline fill="none" stroke="#a8a094" stroke-dasharray="3 3" stroke-linecap="round" stroke-width="1.5" points="348,33.1 424,49"></polyline>
+
+                  <circle cx="500" cy="103.3" fill="#e9a34b" r="3" stroke="#171512" stroke-width="2"></circle>
+
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="4" y="130">300</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="4" y="96">600</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="4" y="62">900</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="4" y="28">1200</text>
+
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="44" y="180">Oct 23</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="120" y="180">Oct 24</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="196" y="180">Oct 25</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="272" y="180">Oct 26</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="348" y="180">Oct 27</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="424" y="180">Oct 28</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="500" y="180">Oct 29</text>
+                </svg>
+              </div>
+              <p class="mt-2 text-[11px] text-text-muted">138 attempts · p95 needs 20 per day, so Oct 29 shows median only.</p>
+            </div>
+
+            <!-- Total duration -->
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-4 sm:p-5">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 class="text-[14px] font-semibold text-text-primary">Generation duration</h3>
+                  <p class="mt-0.5 text-[11px] text-text-secondary">Median and p95 per day (seconds)</p>
+                </div>
+                <div class="flex items-center gap-3 text-[11px]">
+                  <span class="flex items-center gap-1.5 text-text-primary"><span class="w-2.5 h-0.5 rounded-full bg-amber-accent"></span>p50</span>
+                  <span class="flex items-center gap-1.5 text-text-secondary"><span class="w-2.5 h-0.5 rounded-full bg-text-secondary"></span>p95</span>
+                </div>
+              </div>
+
+              <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-surface-border bg-surface-bg/50 px-3 py-2 text-[11px]">
+                <span class="text-text-muted">Period median</span>
+                <span class="font-mono text-text-primary">2.6 s</span>
+                <span class="text-text-muted">p95</span>
+                <span class="font-mono text-text-primary">5.7 s</span>
+                <span class="text-text-muted ml-auto">138 samples</span>
+              </div>
+
+              <div class="mt-3 w-full h-44">
+                <svg class="chart-half w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 520 200" role="img" aria-label="Median and p95 generation duration per day">
+                  <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="44" x2="500" y1="82.3" y2="82.3"></line>
+                  <line stroke="#26221c" stroke-dasharray="3 3" stroke-width="1" x1="44" x2="500" y1="43.4" y2="43.4"></line>
+                  <line stroke="#38332b" stroke-width="1" x1="44" x2="500" y1="160" y2="160"></line>
+
+                  <polyline fill="none" stroke="#e9a34b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="44,117.3 120,123.1 196,111.4"></polyline>
+                  <polyline fill="none" stroke="#e9a34b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="348,105.6 424,109.5 500,107.5"></polyline>
+
+                  <polyline fill="none" stroke="#a8a094" stroke-dasharray="3 3" stroke-linecap="round" stroke-width="1.5" points="44,66.7 120,93.9 196,62.9"></polyline>
+                  <polyline fill="none" stroke="#a8a094" stroke-dasharray="3 3" stroke-linecap="round" stroke-width="1.5" points="348,37.6 424,47.3"></polyline>
+
+                  <circle cx="500" cy="107.5" fill="#e9a34b" r="3" stroke="#171512" stroke-width="2"></circle>
+
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="4" y="85">4s</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="9" x="4" y="46">6s</text>
+
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="44" y="180">Oct 23</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="120" y="180">Oct 24</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="196" y="180">Oct 25</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="272" y="180">Oct 26</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="348" y="180">Oct 27</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="424" y="180">Oct 28</text>
+                  <text fill="#736b60" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle" x="500" y="180">Oct 29</text>
+                </svg>
+              </div>
+              <p class="mt-2 text-[11px] text-text-muted">Duration includes failed and interrupted attempts that reached a terminal state.</p>
+            </div>
+          </div>
+
+          <!-- Reliability -->
+          <div id="reliability" class="rounded-xl border border-surface-border bg-surface-elevated/40 p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div>
+                <h3 class="text-[14px] font-semibold text-text-primary">Reliability</h3>
+                <p class="mt-0.5 text-[11px] text-text-secondary">Terminal outcomes per day</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 text-[11px]">
+                <span class="flex items-center gap-1.5 text-text-secondary"><span class="w-2 h-2 rounded-sm bg-text-muted"></span>Completed <span class="font-mono text-text-muted">128</span></span>
+                <span class="flex items-center gap-1.5 text-danger"><span class="w-2 h-2 rounded-sm bg-danger"></span>Failed <span class="font-mono text-text-muted">5</span></span>
+                <span class="flex items-center gap-1.5 text-amber-accent"><span class="w-2 h-2 rounded-sm bg-amber-accent"></span>Interrupted <span class="font-mono text-text-muted">5</span></span>
+              </div>
+            </div>
+
+            <div class="mt-4 space-y-2.5">
+              <!-- Oct 23 -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 23</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">22 runs</span>
+                <div class="flex-1 h-2 rounded-full bg-surface-bg overflow-hidden flex">
+                  <div class="bg-text-muted h-full" style="width: 90.9%"></div>
+                  <div class="bg-danger h-full" style="width: 4.55%"></div>
+                  <div class="bg-amber-accent h-full" style="width: 4.55%"></div>
+                </div>
+                <span class="font-mono text-[11px] text-text-secondary w-12 text-right shrink-0">90.9%</span>
+              </div>
+              <!-- Oct 24 -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 24</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">21 runs</span>
+                <div class="flex-1 h-2 rounded-full bg-surface-bg overflow-hidden flex">
+                  <div class="bg-text-muted h-full" style="width: 100%"></div>
+                </div>
+                <span class="font-mono text-[11px] text-text-secondary w-12 text-right shrink-0">100%</span>
+              </div>
+              <!-- Oct 25 -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 25</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">24 runs</span>
+                <div class="flex-1 h-2 rounded-full bg-surface-bg overflow-hidden flex">
+                  <div class="bg-text-muted h-full" style="width: 91.7%"></div>
+                  <div class="bg-danger h-full" style="width: 4.17%"></div>
+                  <div class="bg-amber-accent h-full" style="width: 4.17%"></div>
+                </div>
+                <span class="font-mono text-[11px] text-text-secondary w-12 text-right shrink-0">91.7%</span>
+              </div>
+              <!-- Oct 26: no data -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 26</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">0 runs</span>
+                <div class="flex-1 h-2 rounded-full border border-dashed border-surface-border"></div>
+                <span class="font-mono text-[11px] text-text-muted w-12 text-right shrink-0">—</span>
+              </div>
+              <!-- Oct 27 -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 27</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">23 runs</span>
+                <div class="flex-1 h-2 rounded-full bg-surface-bg overflow-hidden flex">
+                  <div class="bg-text-muted h-full" style="width: 87%"></div>
+                  <div class="bg-danger h-full" style="width: 8.7%"></div>
+                  <div class="bg-amber-accent h-full" style="width: 4.3%"></div>
+                </div>
+                <span class="font-mono text-[11px] text-text-secondary w-12 text-right shrink-0">87.0%</span>
+              </div>
+              <!-- Oct 28 -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 28</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">31 runs</span>
+                <div class="flex-1 h-2 rounded-full bg-surface-bg overflow-hidden flex">
+                  <div class="bg-text-muted h-full" style="width: 93.5%"></div>
+                  <div class="bg-danger h-full" style="width: 3.2%"></div>
+                  <div class="bg-amber-accent h-full" style="width: 3.2%"></div>
+                </div>
+                <span class="font-mono text-[11px] text-text-secondary w-12 text-right shrink-0">93.5%</span>
+              </div>
+              <!-- Oct 29: in progress -->
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-[11px] text-text-muted w-12 shrink-0">Oct 29</span>
+                <span class="font-mono text-[10px] text-text-muted w-16 shrink-0">17 runs</span>
+                <div class="flex-1 h-2 rounded-full bg-surface-bg overflow-hidden flex">
+                  <div class="bg-text-muted h-full" style="width: 94.1%"></div>
+                  <div class="bg-amber-accent h-full" style="width: 5.9%"></div>
+                </div>
+                <span class="font-mono text-[11px] text-text-secondary w-12 text-right shrink-0">94.1%</span>
+              </div>
+            </div>
+
+            <p class="mt-3 pt-3 border-t border-surface-border text-[11px] text-text-muted">
+              Oct 26 had no attempts. Oct 29 is still in progress, so its bar will change before the range closes.
+              Success rate excludes attempts that have not reached a terminal state.
+            </p>
+          </div>
+        </section>
+
+        <!-- 03. TOKEN USAGE -->
+        <section id="usage" class="space-y-3">
+          <div class="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">03 / Token usage</span>
+              <h2 class="mt-1 text-[15px] sm:text-[16px] font-semibold tracking-tight text-text-primary">Totals and estimate</h2>
+            </div>
+            <span class="text-[11px] text-text-muted">Provider-reported usage only</span>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted">Total input</span>
+                <span class="text-[10px] text-amber-accent">partial</span>
+              </div>
+              <div class="mt-2 text-[22px] leading-none font-semibold tracking-tight tabular-nums">283.1k</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">Across 135 attempts with usage</div>
+            </div>
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted">Total output</span>
+                <span class="text-[10px] text-amber-accent">partial</span>
+              </div>
+              <div class="mt-2 text-[22px] leading-none font-semibold tracking-tight tabular-nums">83.3k</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">Across 135 attempts with usage</div>
+            </div>
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted">Average input</span>
+              <div class="mt-2 text-[22px] leading-none font-semibold tracking-tight tabular-nums">2,097</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">Per generation with usage</div>
+            </div>
+            <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-3.5">
+              <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted">Average output</span>
+              <div class="mt-2 text-[22px] leading-none font-semibold tracking-tight tabular-nums">617</div>
+              <div class="mt-1.5 text-[11px] text-text-secondary">Per generation with usage</div>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-surface-border bg-surface-elevated/40 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-medium uppercase tracking-wider text-text-muted">Estimated API cost</span>
+                <span class="rounded-full border border-amber-border bg-amber-dim px-2 py-0.5 text-[10px] font-medium text-amber-accent">estimate</span>
+              </div>
+              <div class="mt-1.5 text-[26px] leading-none font-semibold tracking-tight text-amber-accent tabular-nums">$0.29</div>
+              <p class="mt-2 text-[11px] leading-relaxed text-text-secondary max-w-md">
+                What this usage would cost at list price. Lucid runs on Gemini's free tier, so actual billing is $0.00.
+              </p>
+            </div>
+            <div class="font-mono text-[11px] leading-relaxed text-text-muted sm:text-right shrink-0">
+              <div>283.1k in &times; $0.30 / M</div>
+              <div>83.3k out &times; $2.50 / M</div>
+              <div class="text-text-secondary">= $0.29 estimated</div>
+            </div>
+          </div>
+
+          <p class="text-[11px] leading-relaxed text-text-muted">
+            Rates come from backend configuration, not from this page. 3 attempts returned no usage metadata, so totals and cost are partial rather than guessed.
+          </p>
+        </section>
+
+        <!-- 04. RECENT GENERATIONS -->
+        <section id="generations" class="space-y-3">
+          <div class="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">04 / Recent generations</span>
+              <h2 class="mt-1 text-[15px] sm:text-[16px] font-semibold tracking-tight text-text-primary">Latest 25 attempts</h2>
+            </div>
+            <span class="text-[11px] text-text-muted">Metadata only · no prompts or message content</span>
+          </div>
+
+          <!-- Desktop table -->
+          <div class="hidden md:block rounded-xl border border-surface-border overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-[12px]">
+                <thead>
+                  <tr class="bg-surface-elevated/70 border-b border-surface-border text-text-muted text-[10px] uppercase tracking-wider">
+                    <th class="py-2.5 px-3 font-medium">Time</th>
+                    <th class="py-2.5 px-3 font-medium">Conversation</th>
+                    <th class="py-2.5 px-3 font-medium">Status</th>
+                    <th class="py-2.5 px-3 font-medium">Model</th>
+                    <th class="py-2.5 px-3 font-medium text-right">In</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Out</th>
+                    <th class="py-2.5 px-3 font-medium text-right">TTFT</th>
+                    <th class="py-2.5 px-3 font-medium text-right">Duration</th>
+                    <th class="py-2.5 px-3 font-medium text-center">Attempt</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-border">
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="Event-Driven Architecture &amp; Bus" data-status="completed" data-model="gemini-3.6-flash"
+                      data-in="8,412" data-out="1,284" data-ttft="486 ms" data-duration="2.6 s" data-attempt="1" data-auto-retries="0"
+                      data-http="200" data-context="8,412 tokens" data-started="Oct 29, 10:40:56" data-finished="Oct 29, 10:40:59">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 29, 10:41</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">Event-Driven Architecture &amp; Bus</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-text-primary">
+                        <span class="material-symbols-outlined text-[12px] text-text-secondary">check_circle</span>Completed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">8,412</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">1,284</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">486 ms</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">2.6 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">#1</td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="PostgreSQL Partitioning Setup" data-status="completed" data-model="gemini-3.6-flash"
+                      data-in="5,037" data-out="902" data-ttft="512 ms" data-duration="2.1 s" data-attempt="1" data-auto-retries="1"
+                      data-http="200" data-context="5,037 tokens" data-started="Oct 29, 10:11:40" data-finished="Oct 29, 10:11:42">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 29, 10:12</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">PostgreSQL Partitioning Setup</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-text-primary">
+                        <span class="material-symbols-outlined text-[12px] text-text-secondary">check_circle</span>Completed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">5,037</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">902</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">512 ms</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">2.1 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">
+                      #1
+                      <span class="block text-[9px] text-amber-accent">1 auto</span>
+                    </td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="Docker Best Practices" data-status="interrupted" data-model="gemini-3.6-flash"
+                      data-in="—" data-out="—" data-ttft="640 ms" data-duration="1.2 s" data-attempt="1" data-auto-retries="0"
+                      data-http="200" data-context="3,920 tokens" data-started="Oct 29, 09:47:31" data-finished="Oct 29, 09:47:33">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 29, 09:48</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">Docker Best Practices</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-amber-border bg-amber-dim px-2 py-0.5 text-[10px] font-medium text-amber-accent">
+                        <span class="material-symbols-outlined text-[12px] text-amber-accent">stop_circle</span>Interrupted
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">640 ms</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">1.2 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">#1</td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="Tailwind Design System Tokens" data-status="failed" data-model="gemini-3.6-flash"
+                      data-in="—" data-out="—" data-ttft="—" data-duration="0.4 s" data-attempt="1" data-auto-retries="2"
+                      data-http="429" data-context="2,410 tokens" data-started="Oct 28, 18:02:58" data-finished="Oct 28, 18:02:58"
+                      data-error-code="rate_limited" data-error-message="Provider rate limit kept returning after 2 automatic retries.">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 28, 18:03</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">Tailwind Design System Tokens</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-danger-border bg-danger-dim px-2 py-0.5 text-[10px] font-medium text-danger">
+                        <span class="material-symbols-outlined text-[12px] text-danger">error</span>Failed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">0.4 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">
+                      #1
+                      <span class="block text-[9px] text-amber-accent">2 auto</span>
+                    </td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="Tailwind Design System Tokens" data-status="completed" data-model="gemini-3.6-flash"
+                      data-in="2,455" data-out="764" data-ttft="431 ms" data-duration="2.4 s" data-attempt="2" data-auto-retries="0"
+                      data-http="200" data-context="2,455 tokens" data-started="Oct 28, 17:30:12" data-finished="Oct 28, 17:30:14">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 28, 17:31</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">Tailwind Design System Tokens</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-text-primary">
+                        <span class="material-symbols-outlined text-[12px] text-text-secondary">check_circle</span>Completed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">2,455</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">764</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">431 ms</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">2.4 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">#2</td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="REST to GraphQL Migration" data-status="completed" data-model="gemini-3.6-flash"
+                      data-in="9,804" data-out="1,552" data-ttft="455 ms" data-duration="3.1 s" data-attempt="1" data-auto-retries="1"
+                      data-http="200" data-context="9,804 tokens" data-started="Oct 28, 11:19:44" data-finished="Oct 28, 11:19:47">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 28, 11:20</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">REST to GraphQL Migration</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-text-primary">
+                        <span class="material-symbols-outlined text-[12px] text-text-secondary">check_circle</span>Completed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">9,804</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">1,552</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">455 ms</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">3.1 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">
+                      #1
+                      <span class="block text-[9px] text-amber-accent">1 auto</span>
+                    </td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="System Design Interview Prep" data-status="completed" data-model="gemini-3.6-flash"
+                      data-in="12,640" data-out="1,102" data-ttft="528 ms" data-duration="3.4 s" data-attempt="3" data-auto-retries="0"
+                      data-http="200" data-context="12,640 tokens" data-started="Oct 27, 16:06:31" data-finished="Oct 27, 16:06:35">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 27, 16:07</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">System Design Interview Prep</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-text-primary">
+                        <span class="material-symbols-outlined text-[12px] text-text-secondary">check_circle</span>Completed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">12,640</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">1,102</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] tabular-nums">528 ms</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">3.4 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">
+                      #3
+                      <span class="block text-[9px] text-amber-accent">2 manual</span>
+                    </td>
+                  </tr>
+
+                  <tr tabindex="0" onclick="openDetails(this)" onkeydown="if(event.key==='Enter')openDetails(this)" class="cursor-pointer hover:bg-surface-hover/40 transition-colors"
+                      data-conversation="PostgreSQL Partitioning Setup" data-status="failed" data-model="gemini-3.6-flash"
+                      data-in="—" data-out="—" data-ttft="—" data-duration="8.2 s" data-attempt="1" data-auto-retries="2"
+                      data-http="504" data-context="1,988 tokens" data-started="Oct 25, 14:55:02" data-finished="Oct 25, 14:55:10"
+                      data-error-code="upstream_timeout" data-error-message="The provider gateway timed out after 2 automatic retries.">
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-secondary whitespace-nowrap">Oct 25, 14:55</td>
+                    <td class="py-2.5 px-3 text-text-primary truncate max-w-[220px]">PostgreSQL Partitioning Setup</td>
+                    <td class="py-2.5 px-3">
+                      <span data-status-chip class="inline-flex items-center gap-1 rounded-full border border-danger-border bg-danger-dim px-2 py-0.5 text-[10px] font-medium text-danger">
+                        <span class="material-symbols-outlined text-[12px] text-danger">error</span>Failed
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-[11px] text-text-muted whitespace-nowrap">gemini-3.6-flash</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-muted tabular-nums">—</td>
+                    <td class="py-2.5 px-3 text-right font-mono text-[11px] text-text-secondary tabular-nums">8.2 s</td>
+                    <td class="py-2.5 px-3 text-center font-mono text-[11px] text-text-muted">
+                      #1
+                      <span class="block text-[9px] text-amber-accent">2 auto</span>
+                    </td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mobile cards -->
+          <div class="block md:hidden space-y-2.5">
+            <button type="button" onclick="openDetails(this)" class="w-full text-left rounded-xl border border-surface-border bg-surface-elevated/40 hover:bg-surface-elevated/70 p-3.5 space-y-2.5 transition-colors"
+                    data-conversation="Event-Driven Architecture &amp; Bus" data-status="completed" data-model="gemini-3.6-flash"
+                    data-in="8,412" data-out="1,284" data-ttft="486 ms" data-duration="2.6 s" data-attempt="1" data-auto-retries="0"
+                    data-http="200" data-context="8,412 tokens" data-started="Oct 29, 10:40:56" data-finished="Oct 29, 10:40:59">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="font-mono text-[11px] text-text-muted">Oct 29, 10:41</div>
+                  <div class="mt-0.5 text-[13px] font-medium text-text-primary truncate">Event-Driven Architecture &amp; Bus</div>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-text-primary shrink-0">
+                  <span class="material-symbols-outlined text-[12px] text-text-secondary">check_circle</span>Completed
+                </span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 rounded-lg bg-surface-bg/60 border border-surface-border p-2.5 text-[11px]">
+                <div><span class="block text-text-muted">TTFT</span><span class="font-mono text-text-primary">486 ms</span></div>
+                <div><span class="block text-text-muted">Duration</span><span class="font-mono text-text-primary">2.6 s</span></div>
+                <div><span class="block text-text-muted">Tokens</span><span class="font-mono text-text-primary">8.4k / 1.3k</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2 text-[11px] text-text-muted">
+                <span class="truncate">gemini-3.6-flash · attempt #1</span>
+                <span class="inline-flex items-center gap-1 text-amber-accent shrink-0">Details<span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+              </div>
+            </button>
+
+            <button type="button" onclick="openDetails(this)" class="w-full text-left rounded-xl border border-surface-border bg-surface-elevated/40 hover:bg-surface-elevated/70 p-3.5 space-y-2.5 transition-colors"
+                    data-conversation="Tailwind Design System Tokens" data-status="failed" data-model="gemini-3.6-flash"
+                    data-in="—" data-out="—" data-ttft="—" data-duration="0.4 s" data-attempt="1" data-auto-retries="2"
+                    data-http="429" data-context="2,410 tokens" data-started="Oct 28, 18:02:58" data-finished="Oct 28, 18:02:58"
+                    data-error-code="rate_limited" data-error-message="Provider rate limit kept returning after 2 automatic retries.">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="font-mono text-[11px] text-text-muted">Oct 28, 18:03</div>
+                  <div class="mt-0.5 text-[13px] font-medium text-text-primary truncate">Tailwind Design System Tokens</div>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-full border border-danger-border bg-danger-dim px-2 py-0.5 text-[10px] font-medium text-danger shrink-0">
+                  <span class="material-symbols-outlined text-[12px] text-danger">error</span>Failed
+                </span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 rounded-lg bg-surface-bg/60 border border-surface-border p-2.5 text-[11px]">
+                <div><span class="block text-text-muted">TTFT</span><span class="font-mono text-text-muted">—</span></div>
+                <div><span class="block text-text-muted">Duration</span><span class="font-mono text-text-primary">0.4 s</span></div>
+                <div><span class="block text-text-muted">Retries</span><span class="font-mono text-amber-accent">2 auto</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2 text-[11px] text-text-muted">
+                <span class="truncate text-danger">rate_limited · 429</span>
+                <span class="inline-flex items-center gap-1 text-amber-accent shrink-0">Details<span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+              </div>
+            </button>
+
+            <button type="button" onclick="openDetails(this)" class="w-full text-left rounded-xl border border-surface-border bg-surface-elevated/40 hover:bg-surface-elevated/70 p-3.5 space-y-2.5 transition-colors"
+                    data-conversation="Docker Best Practices" data-status="interrupted" data-model="gemini-3.6-flash"
+                    data-in="—" data-out="—" data-ttft="640 ms" data-duration="1.2 s" data-attempt="1" data-auto-retries="0"
+                    data-http="200" data-context="3,920 tokens" data-started="Oct 29, 09:47:31" data-finished="Oct 29, 09:47:33">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="font-mono text-[11px] text-text-muted">Oct 29, 09:48</div>
+                  <div class="mt-0.5 text-[13px] font-medium text-text-primary truncate">Docker Best Practices</div>
+                </div>
+                <span class="inline-flex items-center gap-1 rounded-full border border-amber-border bg-amber-dim px-2 py-0.5 text-[10px] font-medium text-amber-accent shrink-0">
+                  <span class="material-symbols-outlined text-[12px] text-amber-accent">stop_circle</span>Interrupted
+                </span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 rounded-lg bg-surface-bg/60 border border-surface-border p-2.5 text-[11px]">
+                <div><span class="block text-text-muted">TTFT</span><span class="font-mono text-text-primary">640 ms</span></div>
+                <div><span class="block text-text-muted">Duration</span><span class="font-mono text-text-primary">1.2 s</span></div>
+                <div><span class="block text-text-muted">Usage</span><span class="font-mono text-text-muted">unavailable</span></div>
+              </div>
+              <div class="flex items-center justify-between gap-2 text-[11px] text-text-muted">
+                <span class="truncate">gemini-3.6-flash · attempt #1</span>
+                <span class="inline-flex items-center gap-1 text-amber-accent shrink-0">Details<span class="material-symbols-outlined text-[14px]">arrow_forward</span></span>
+              </div>
+            </button>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 text-[11px] text-text-muted">
+            <span>Latest 25 attempts · sample rows in this static mockup · no pagination in the initial version</span>
+            <span class="font-mono">telemetry retention: 30 days</span>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Compact generation details -->
+<div id="details-dialog" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md" onclick="if(event.target===this)closeDetails()">
+  <div role="dialog" aria-modal="true" aria-labelledby="details-title" class="w-full max-w-[520px] max-h-[90vh] overflow-y-auto rounded-xl bg-surface-elevated border border-surface-border-subtle shadow-2xl p-5 sm:p-6">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">Generation attempt</p>
+        <h2 id="details-title" class="mt-1 text-[15px] font-semibold text-text-primary truncate">Conversation</h2>
+        <p id="detail-time" class="mt-0.5 font-mono text-[11px] text-text-muted">Oct 29, 10:41</p>
+      </div>
+      <button type="button" onclick="closeDetails()" aria-label="Close details" class="p-1 -mt-1 -mr-1 rounded text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors shrink-0">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <div class="mt-3">
+      <span id="detail-status" class="inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2.5 py-1 text-[11px] font-medium text-text-primary">
+        <span class="material-symbols-outlined text-[13px] text-text-secondary">check_circle</span>Completed
+      </span>
+    </div>
+
+    <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-[12px]">
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Model</dt>
+        <dd id="detail-model" class="mt-0.5 font-mono text-[12px] text-text-primary">gemini-3.6-flash</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Attempt</dt>
+        <dd id="detail-attempt" class="mt-0.5 font-mono text-[12px] text-text-primary">#1</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Input tokens</dt>
+        <dd id="detail-in" class="mt-0.5 font-mono text-[12px] text-text-primary">8,412</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Output tokens</dt>
+        <dd id="detail-out" class="mt-0.5 font-mono text-[12px] text-text-primary">1,284</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">TTFT</dt>
+        <dd id="detail-ttft" class="mt-0.5 font-mono text-[12px] text-text-primary">486 ms</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Total duration</dt>
+        <dd id="detail-duration" class="mt-0.5 font-mono text-[12px] text-text-primary">2.6 s</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">HTTP status</dt>
+        <dd id="detail-http" class="mt-0.5 font-mono text-[12px] text-text-primary">200</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Context sent</dt>
+        <dd id="detail-context" class="mt-0.5 font-mono text-[12px] text-text-primary">8,412 tokens</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Automatic retries</dt>
+        <dd id="detail-auto-retries" class="mt-0.5 font-mono text-[12px] text-text-primary">0</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Manual retries</dt>
+        <dd id="detail-manual-retries" class="mt-0.5 font-mono text-[12px] text-text-primary">0</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Started</dt>
+        <dd id="detail-started" class="mt-0.5 font-mono text-[12px] text-text-primary">Oct 29, 10:40:56</dd>
+      </div>
+      <div>
+        <dt class="text-[10px] uppercase tracking-wider text-text-muted">Finished</dt>
+        <dd id="detail-finished" class="mt-0.5 font-mono text-[12px] text-text-primary">Oct 29, 10:40:59</dd>
+      </div>
+    </dl>
+
+    <div id="detail-error" class="hidden mt-4 rounded-lg border border-danger-border bg-danger-dim p-3">
+      <div id="detail-error-code" class="font-mono text-[10px] uppercase tracking-wider text-danger">error_code</div>
+      <p id="detail-error-message" class="mt-1 text-[12px] leading-relaxed text-text-secondary">Sanitized detail.</p>
+    </div>
+
+    <div class="mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-surface-border pt-3.5">
+      <p class="text-[11px] leading-relaxed text-text-muted">Metadata only. Lucid does not store prompts, message content, or provider payloads in telemetry.</p>
+      <button type="button" onclick="closeDetails()" class="px-3.5 py-2 rounded-lg border border-surface-border-subtle text-[12px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors shrink-0">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="shell.js"></script>
+<script>
+  LucidShell.mount({
+    activeId: "dashboard",
+    title: "Dashboard"
+  });
+
+  var detailsDialog = document.getElementById("details-dialog");
+
+  function setText(id, value) {
+    document.getElementById(id).textContent = value;
+  }
+
+  function openDetails(row) {
+    var data = row.dataset;
+    setText("details-title", data.conversation);
+    setText("detail-time", data.started);
+    setText("detail-model", data.model);
+    setText("detail-attempt", "#" + data.attempt);
+    setText("detail-in", data.in);
+    setText("detail-out", data.out);
+    setText("detail-ttft", data.ttft);
+    setText("detail-duration", data.duration);
+    setText("detail-http", data.http);
+    setText("detail-context", data.context);
+    setText("detail-auto-retries", data.autoRetries);
+    setText("detail-manual-retries", String(Math.max(0, Number(data.attempt) - 1)));
+    setText("detail-started", data.started);
+    setText("detail-finished", data.finished);
+
+    var chipStyles = {
+      completed: {
+        className: "inline-flex items-center gap-1 rounded-full border border-surface-border-subtle bg-surface-elevated px-2.5 py-1 text-[11px] font-medium text-text-primary",
+        icon: "check_circle",
+        iconClass: "text-text-secondary",
+        label: "Completed"
+      },
+      failed: {
+        className: "inline-flex items-center gap-1 rounded-full border border-danger-border bg-danger-dim px-2.5 py-1 text-[11px] font-medium text-danger",
+        icon: "error",
+        iconClass: "text-danger",
+        label: "Failed"
+      },
+      interrupted: {
+        className: "inline-flex items-center gap-1 rounded-full border border-amber-border bg-amber-dim px-2.5 py-1 text-[11px] font-medium text-amber-accent",
+        icon: "stop_circle",
+        iconClass: "text-amber-accent",
+        label: "Interrupted"
+      }
+    };
+    var chip = chipStyles[data.status] || chipStyles.completed;
+    var statusChip = document.getElementById("detail-status");
+    statusChip.className = chip.className;
+    statusChip.innerHTML =
+      '<span class="material-symbols-outlined text-[13px] ' + chip.iconClass + '">' + chip.icon + "</span>" + chip.label;
+
+    var errorBlock = document.getElementById("detail-error");
+    if (data.errorCode) {
+      setText("detail-error-code", data.errorCode);
+      setText("detail-error-message", data.errorMessage);
+      errorBlock.classList.remove("hidden");
+    } else {
+      errorBlock.classList.add("hidden");
+    }
+
+    detailsDialog.classList.remove("hidden");
+  }
+
+  function closeDetails() {
+    detailsDialog.classList.add("hidden");
+  }
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      closeDetails();
+    }
+  });
+</script>
+</body>
+</html>

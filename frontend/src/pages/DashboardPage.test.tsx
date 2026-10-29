@@ -1,0 +1,145 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ApiError, getDashboard } from "../api/client";
+import { dashboardData } from "../test/fixtures/dashboard";
+import { DashboardPage } from "./DashboardPage";
+
+vi.mock("../api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/client")>();
+  return { ...actual, getDashboard: vi.fn() };
+});
+
+const mockedGetDashboard = vi.mocked(getDashboard);
+let client: QueryClient;
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+beforeEach(() => {
+  client = new QueryClient({
+    defaultOptions: { queries: { retryDelay: 0, refetchOnWindowFocus: false } },
+  });
+  mockedGetDashboard.mockReset();
+});
+
+afterEach(() => {
+  client.clear();
+});
+
+describe("DashboardPage", () => {
+  it("loads the default 7-day range and renders the overview", async () => {
+    mockedGetDashboard.mockResolvedValue(dashboardData());
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+
+    expect(await screen.findByText("92.8%")).toBeInTheDocument();
+    expect(mockedGetDashboard).toHaveBeenCalledWith("7d", expect.any(AbortSignal));
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("Last 7 days")).toBeInTheDocument();
+    expect(screen.getByText("Token usage")).toBeInTheDocument();
+    expect(screen.getByText("Reliability")).toBeInTheDocument();
+    expect(screen.getByText("2,097")).toBeInTheDocument();
+    expect(screen.getByText("Latest 25 attempts")).toBeInTheDocument();
+    expect(screen.getAllByText("Event-Driven Architecture & Bus")).toHaveLength(2);
+  });
+
+  it("loads a new range when the selector changes", async () => {
+    mockedGetDashboard.mockResolvedValue(dashboardData());
+    const user = userEvent.setup();
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+    await screen.findByText("92.8%");
+
+    await user.click(screen.getByRole("button", { name: "30 days" }));
+
+    expect(await screen.findByText("Last 30 days")).toBeInTheDocument();
+    expect(mockedGetDashboard).toHaveBeenCalledWith("30d", expect.any(AbortSignal));
+  });
+
+  it("refreshes manually", async () => {
+    mockedGetDashboard.mockResolvedValue(dashboardData());
+    const user = userEvent.setup();
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+    await screen.findByText("92.8%");
+
+    await user.click(screen.getByRole("button", { name: /Refresh/ }));
+
+    await waitFor(() => expect(mockedGetDashboard).toHaveBeenCalledTimes(2));
+    expect(mockedGetDashboard).toHaveBeenLastCalledWith("7d", expect.any(AbortSignal));
+  });
+
+  it("keeps the last data and shows a stale banner when a refresh fails", async () => {
+    mockedGetDashboard.mockResolvedValueOnce(dashboardData());
+    const user = userEvent.setup();
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+    await screen.findByText("92.8%");
+
+    mockedGetDashboard.mockRejectedValue(new ApiError("request_failed", "Offline.", 503));
+    await user.click(screen.getByRole("button", { name: /Refresh/ }));
+
+    expect(
+      await screen.findByText("Couldn't refresh. Showing the last successful data."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("18")).toBeInTheDocument();
+  });
+
+  it("shows a full error and can recover when there is no data", async () => {
+    mockedGetDashboard.mockRejectedValue(new ApiError("request_failed", "Offline.", 503));
+    const user = userEvent.setup();
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+
+    expect(await screen.findByText("Couldn't load the dashboard")).toBeInTheDocument();
+
+    mockedGetDashboard.mockResolvedValue(dashboardData());
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("92.8%")).toBeInTheDocument();
+  });
+
+  it("explains a completely empty range instead of showing zeroes", async () => {
+    const base = dashboardData();
+    mockedGetDashboard.mockResolvedValue(
+      dashboardData({
+        overview: {
+          ...base.overview,
+          conversations_active: 0,
+          conversations_new: 0,
+          user_messages: 0,
+          attempts: 0,
+          completed: 0,
+          failed: 0,
+          interrupted: 0,
+          in_progress: 0,
+          success_rate: null,
+          input_tokens: 0,
+          output_tokens: 0,
+          average_input_tokens: null,
+          average_output_tokens: null,
+          usage_partial: false,
+          estimated_cost_usd: null,
+          pricing: { ...base.overview.pricing, available: false },
+        },
+        trend: [],
+        latency: {
+          ttft: { p50_ms: null, p95_ms: null, samples: 0 },
+          duration: { p50_ms: null, p95_ms: null, samples: 0 },
+        },
+        recent: [],
+      }),
+    );
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+
+    expect(await screen.findByText("No telemetry in this range")).toBeInTheDocument();
+    expect(screen.queryByText("Conversations")).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+});

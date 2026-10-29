@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lucid.domain.enums import AttemptStatus, Role
+from lucid.domain.outcome import AttemptOutcome
 from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
@@ -121,11 +122,13 @@ async def test_detail_returns_messages_in_sequence_with_attempt_metadata(
     )
     await AttemptRepository(session).finalize(
         attempt.id,
-        status=AttemptStatus.COMPLETED,
-        assistant_message_id=assistant_message.id,
-        input_tokens=11,
-        output_tokens=90,
-        total_tokens=101,
+        AttemptOutcome(
+            status=AttemptStatus.COMPLETED,
+            assistant_message_id=assistant_message.id,
+            input_tokens=11,
+            output_tokens=90,
+            total_tokens=101,
+        ),
     )
     await session.commit()
 
@@ -162,9 +165,11 @@ async def test_detail_reports_retryable_failed_generation(
     )
     await AttemptRepository(session).finalize(
         attempt.id,
-        status=AttemptStatus.FAILED,
-        error_code="provider_unavailable",
-        error_message="The model is unavailable.",
+        AttemptOutcome(
+            status=AttemptStatus.FAILED,
+            error_code="provider_unavailable",
+            error_message="The model is unavailable.",
+        ),
     )
     await session.commit()
 
@@ -193,9 +198,11 @@ async def test_detail_reports_non_retryable_context_failure(
     )
     await AttemptRepository(session).finalize(
         attempt.id,
-        status=AttemptStatus.FAILED,
-        error_code="context_too_large",
-        error_message="Too much context.",
+        AttemptOutcome(
+            status=AttemptStatus.FAILED,
+            error_code="context_too_large",
+            error_message="Too much context.",
+        ),
     )
     await session.commit()
 

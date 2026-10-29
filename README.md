@@ -56,7 +56,10 @@ against a stalled provider.
 | Document | Purpose |
 |---|---|
 | [`docs/specs/001-lucid-specification.md`](docs/specs/001-lucid-specification.md) | What the system must do: scope, non-goals, UX, data model, acceptance criteria |
+| [`docs/specs/002-lucid-dashboard-spec.md`](docs/specs/002-lucid-dashboard-spec.md) | Dashboard scope, metrics, telemetry fields, retention and states |
 | [`docs/plans/implementation-plan.md`](docs/plans/implementation-plan.md) | How it gets built: architecture, DDL, API and SSE contracts, milestones, tests, risks |
+| [`docs/plans/dashboard-implementation-plan.md`](docs/plans/dashboard-implementation-plan.md) | Dashboard milestones, API shape, file inventory, test matrix |
+| [`docs/plans/code-health-budget.md`](docs/plans/code-health-budget.md) | Enforced size, complexity, coverage and maintainability limits |
 | [`docs/decisions/`](docs/decisions/) | ADRs for the consequential choices (provider, data model, streaming, ids, failures, frontend, model selection) |
 | [`docs/architecture/`](docs/architecture/) | Adapter notes: verified SDK behaviour, event shapes, error mapping |
 | [`docs/screen-mockups/`](docs/screen-mockups/) | Static HTML previews of every UI state, plus the shared design tokens and shell |
@@ -223,14 +226,16 @@ Errors use one envelope: `{"error": {"code", "message", "details"}}`.
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright
-uv run pytest -q
+uv run pytest -q --cov=lucid --cov-branch --cov-fail-under=80
+uv run radon cc src -s -a
+uv run radon mi src -s
 uv run alembic upgrade head
 
 # Frontend, from frontend/
 npm run lint
 npm run format:check
 npm run typecheck
-npm test
+npm run test:coverage
 npm run build
 ```
 
@@ -244,7 +249,8 @@ Point them elsewhere with `TEST_DATABASE_URL`.
 |---|---|---|
 | Unit | context selection, retry policy, titles, cursors, provider mapping | `uv run pytest tests/unit` |
 | Integration | real PostgreSQL, migrations, SSE frame sequence, stop/disconnect, retries, reconciliation | `uv run pytest tests/integration` |
-| Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, model picker, delete dialog | `npm test` |
+| Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, model picker, delete dialog, API client | `npm run test:coverage` |
+| Code health | file/function size, complexity, MI, coverage floors | see [`docs/plans/code-health-budget.md`](docs/plans/code-health-budget.md) |
 | Browser E2E | send → stream → reload → delete, against a real browser and stack | `npm run e2e` (see below) |
 | Live (opt-in) | real provider streaming and **first-token latency** | `$env:LUCID_LIVE_TESTS=1; uv run pytest tests/live` |
 

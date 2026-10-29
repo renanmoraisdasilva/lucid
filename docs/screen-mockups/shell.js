@@ -82,6 +82,24 @@
       .join("");
   }
 
+  function dashboardRow(activeId) {
+    var isActive = activeId === "dashboard";
+    return (
+      '<a href="dashboard.html" class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors ' +
+      (isActive
+        ? "bg-surface-elevated border border-surface-border-subtle/80 text-text-primary font-medium shadow-xs"
+        : "text-text-secondary hover:text-text-primary hover:bg-surface-elevated/40") +
+      '"' +
+      (isActive ? ' aria-current="page"' : "") +
+      ">" +
+      '<span class="material-symbols-outlined text-[16px] ' +
+      (isActive ? "text-amber-accent" : "text-text-muted") +
+      '">monitoring</span>' +
+      "<span>Dashboard</span>" +
+      "</a>"
+    );
+  }
+
   function sidebar(options, groups) {
     var extra = options.sidebarExtra || "";
     return (
@@ -107,6 +125,10 @@
       '<kbd class="font-mono text-[10px] text-text-muted bg-surface-sidebar px-1.5 py-0.5 rounded border border-surface-border">Ctrl K</kbd>' +
       "</button>" +
       "</div>" +
+      '<div class="px-3 pb-2">' +
+      dashboardRow(options.activeId) +
+      "</div>" +
+      '<div class="px-4"><div class="h-px bg-surface-border"></div></div>' +
       '<div class="flex-1 overflow-y-auto px-2 space-y-4 pt-2">' +
       groupsMarkup(groups, options.activeId) +
       extra +

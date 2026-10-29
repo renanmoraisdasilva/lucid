@@ -9,24 +9,21 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.api.deps import (
-    CatalogDep,
-    CooldownDep,
-    ProvidersDep,
     RegistryDep,
     SessionDep,
-    SessionFactoryDep,
-    SystemPromptDep,
+    StreamDeps,
+    StreamDepsDep,
 )
 from lucid.api.errors import ApiError
 from lucid.api.schemas import ChatRequest, RetryRequest, StopGenerationResponse
 from lucid.api.sse import SSE_HEADERS, SSE_MEDIA_TYPE, encode_event
-from lucid.application.chat_service import (
+from lucid.application.chat import (
     ConversationNotFoundError,
     GenerationAlreadyCompletedError,
     GenerationInProgressError,
+    GenerationOptions,
     MessageNotFoundError,
     PreparedGeneration,
     prepare_message,
@@ -34,16 +31,14 @@ from lucid.application.chat_service import (
     stream_generation,
 )
 from lucid.application.context import ContextBudget
-from lucid.application.cooldown import RateLimitCooldown
-from lucid.application.models import ModelCatalog, ModelOption
-from lucid.application.registry import GenerationRegistry
+from lucid.application.models import ModelOption
 from lucid.application.retry import RetryPolicy
 from lucid.config import Settings, get_settings
 from lucid.domain.enums import AttemptStatus
 from lucid.domain.errors import ConfigurationError
+from lucid.domain.outcome import AttemptOutcome
 from lucid.domain.provider import ChatProvider
 from lucid.persistence.repositories import AttemptRepository
-from lucid.providers.factory import ProviderRegistry
 
 router = APIRouter(tags=["chat"])
 
@@ -52,15 +47,10 @@ router = APIRouter(tags=["chat"])
 async def send_message_endpoint(
     payload: ChatRequest,
     session: SessionDep,
-    system_prompt: SystemPromptDep,
-    session_factory: SessionFactoryDep,
-    registry: RegistryDep,
-    cooldown: CooldownDep,
-    catalog: CatalogDep,
-    providers: ProvidersDep,
+    deps: StreamDepsDep,
 ) -> StreamingResponse:
     """Send a message and stream the reply. Creates the conversation if needed."""
-    option, provider = _resolve_model(payload.model_id, catalog, providers)
+    option, provider = _resolve_model(deps, payload.model_id)
 
     try:
         prepared = await prepare_message(
@@ -75,15 +65,7 @@ async def send_message_endpoint(
     except GenerationInProgressError as error:
         raise _generation_in_progress(error) from error
 
-    return _stream_response(
-        prepared,
-        provider=provider,
-        model=option.model,
-        system_prompt=system_prompt,
-        session_factory=session_factory,
-        registry=registry,
-        cooldown=cooldown,
-    )
+    return _stream_response(prepared, deps, provider=provider, model=option.model)
 
 
 @router.post("/conversations/{conversation_id}/messages/{message_id}/retry")
@@ -91,18 +73,11 @@ async def retry_message_endpoint(
     conversation_id: uuid.UUID,
     message_id: uuid.UUID,
     session: SessionDep,
-    system_prompt: SystemPromptDep,
-    session_factory: SessionFactoryDep,
-    registry: RegistryDep,
-    cooldown: CooldownDep,
-    catalog: CatalogDep,
-    providers: ProvidersDep,
+    deps: StreamDepsDep,
     payload: RetryRequest | None = None,
 ) -> StreamingResponse:
     """Retry generation for an existing user message."""
-    option, provider = _resolve_model(
-        payload.model_id if payload is not None else None, catalog, providers
-    )
+    option, provider = _resolve_model(deps, payload.model_id if payload is not None else None)
 
     try:
         prepared = await prepare_retry(
@@ -129,15 +104,7 @@ async def retry_message_endpoint(
     except GenerationInProgressError as error:
         raise _generation_in_progress(error) from error
 
-    return _stream_response(
-        prepared,
-        provider=provider,
-        model=option.model,
-        system_prompt=system_prompt,
-        session_factory=session_factory,
-        registry=registry,
-        cooldown=cooldown,
-    )
+    return _stream_response(prepared, deps, provider=provider, model=option.model)
 
 
 @router.post(
@@ -169,8 +136,7 @@ async def stop_generation_endpoint(
         # No task in this process (for example after a restart): close it here.
         await attempts.finalize(
             attempt_id,
-            status=AttemptStatus.INTERRUPTED,
-            error_code="cancelled_untracked",
+            AttemptOutcome(status=AttemptStatus.INTERRUPTED, error_code="cancelled_untracked"),
         )
         await session.commit()
         return StopGenerationResponse(
@@ -187,11 +153,10 @@ async def stop_generation_endpoint(
 
 
 def _resolve_model(
+    deps: StreamDeps,
     model_id: str | None,
-    catalog: ModelCatalog,
-    providers: ProviderRegistry,
 ) -> tuple[ModelOption, ChatProvider]:
-    option = catalog.find(model_id)
+    option = deps.catalog.find(model_id)
     if option is None:
         raise ApiError(
             "model_not_available",
@@ -200,7 +165,7 @@ def _resolve_model(
             details={"model_id": model_id},
         )
     try:
-        provider = providers.get(option.provider)
+        provider = deps.providers.get(option.provider)
     except ConfigurationError as error:
         raise ApiError(
             "model_not_available",
@@ -213,27 +178,27 @@ def _resolve_model(
 
 def _stream_response(
     prepared: PreparedGeneration,
+    deps: StreamDeps,
     *,
     provider: ChatProvider,
     model: str,
-    system_prompt: str,
-    session_factory: async_sessionmaker[AsyncSession],
-    registry: GenerationRegistry,
-    cooldown: RateLimitCooldown,
 ) -> StreamingResponse:
     settings = get_settings()
-    events = stream_generation(
-        prepared,
-        session_factory=session_factory,
-        provider=provider,
-        system_prompt=system_prompt,
+    options = GenerationOptions(
+        system_prompt=deps.system_prompt,
         model=model,
         max_output_tokens=settings.generation_max_output_tokens,
-        registry=registry,
         context_budget=_context_budget(settings),
         retry_policy=_retry_policy(settings),
         first_token_timeout=settings.generation_first_token_timeout_seconds,
-        cooldown=cooldown,
+        cooldown=deps.cooldown,
+    )
+    events = stream_generation(
+        prepared,
+        session_factory=deps.session_factory,
+        provider=provider,
+        registry=deps.registry,
+        options=options,
     )
 
     async def frames() -> AsyncIterator[str]:

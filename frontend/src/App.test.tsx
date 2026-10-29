@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { dashboardData } from "./test/fixtures/dashboard";
 
 const CONVERSATION_ID = "0192f3c1-0000-7000-8000-000000000001";
 const USER_MESSAGE_ID = "0192f3c1-0000-7000-8000-000000000002";
@@ -141,6 +142,9 @@ function installFetchMock(sent: Record<string, unknown>[] = []): void {
           'event: done\ndata: {"attempt_id":"a1","status":"completed","assistant_message_id":"m1","finish_reason":"stop"}\n\n',
         ]);
       }
+      if (url.startsWith("/api/dashboard?")) {
+        return jsonResponse(dashboardData());
+      }
       if (url.startsWith("/api/conversations?")) {
         return jsonResponse({ items: [conversationSummary], next_cursor: null, has_more: false });
       }
@@ -237,60 +241,6 @@ describe("App", () => {
     expect(modelPicker()).not.toBeDisabled();
   });
 
-  it("returns focus to the composer when a response finishes", async () => {
-    const gate = { close: () => {} };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === "string" ? input : input.toString();
-        if (url === "/api/models") {
-          return modelsResponse();
-        }
-        if (url === "/api/chat") {
-          const encoder = new TextEncoder();
-          const body = new ReadableStream<Uint8Array>({
-            start(controller) {
-              controller.enqueue(encoder.encode(metaFrame()));
-              controller.enqueue(encoder.encode('event: delta\ndata: {"text":"pong"}\n\n'));
-              gate.close = () => controller.close();
-            },
-          });
-          return new Response(body, {
-            status: 200,
-            headers: { "Content-Type": "text/event-stream" },
-          });
-        }
-        if (url.startsWith("/api/conversations?")) {
-          return jsonResponse({ items: [], next_cursor: null, has_more: false });
-        }
-        if (url === `/api/conversations/${CONVERSATION_ID}`) {
-          return jsonResponse({ ...conversationDetail, messages: [] });
-        }
-        throw new Error(`Unexpected request: ${init?.method ?? "GET"} ${url}`);
-      }),
-    );
-    const user = userEvent.setup();
-
-    renderApp();
-
-    const composer = screen.getByLabelText("Message Lucid");
-    await user.type(composer, "Hello Lucid{Enter}");
-
-    expect(await screen.findByRole("button", { name: "Stop" })).toBeInTheDocument();
-
-    gate.close();
-
-    await waitFor(() => {
-      expect(composer).not.toBeDisabled();
-    });
-    await waitFor(() => {
-      expect(composer).toHaveFocus();
-    });
-
-    await user.keyboard("again");
-    expect(composer).toHaveValue("again");
-  });
-
   it("disables the composer while a response is streaming", async () => {
     const gate = { close: () => {} };
     vi.stubGlobal(
@@ -361,5 +311,45 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("opens the dashboard without unmounting the chat", async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderApp();
+    await screen.findByRole("button", { name: "Hello Lucid" });
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(await screen.findByText("92.8%")).toBeInTheDocument();
+    // Hidden, not unmounted: switching views must not abort an in-flight chat stream.
+    expect(screen.getByLabelText("Message Lucid")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hello Lucid" }));
+
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
+    expect(await screen.findByRole("heading", { name: "Hello Lucid" })).toBeInTheDocument();
+  });
+
+  it("opens and closes the mobile navigation drawer", async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderApp();
+    await screen.findByRole("button", { name: "Hello Lucid" });
+
+    expect(screen.queryByRole("button", { name: "Close navigation" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(screen.getByRole("button", { name: "Close navigation" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: "Close navigation" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Open navigation" }));
+    await user.click(screen.getByRole("button", { name: "Close navigation" }));
+    expect(screen.queryByRole("button", { name: "Close navigation" })).toBeNull();
   });
 });

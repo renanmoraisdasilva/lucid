@@ -15,7 +15,8 @@ from CDNs, so they need an internet connection; the real app does neither.
 | `theme.js` / `shell.js` are **not** shipped to production | The app expresses the same tokens through its Tailwind 4 build. |
 
 Pages provide `#sidebar-mount`, `#header-mount`, `#composer-mount` and their own
-`<main>`, then call:
+`<main>`, then call `LucidShell.mount(...)`. The dashboard has no composer, so it
+omits that mount and passes `activeId: "dashboard"`.
 
 ```js
 LucidShell.mount({ activeId: "evt", title: "…", streaming: false, groups: [...], sidebarExtra: "…" });
@@ -32,6 +33,8 @@ LucidShell.mount({ activeId: "evt", title: "…", streaming: false, groups: [...
 | `failed.html` | Provider failure before any token, saved message, Retry with attempt counter | §5.8 |
 | `delete-chat.html` | Permanent delete confirmation from the sidebar row | §5.3 |
 | `sidebar-states.html` | Empty history, next page loading, end of list | §5.3 (pagination) |
+| `dashboard.html` | Populated dashboard: overview, trends, token usage, recent generations, details modal | 002 §3–§6 |
+| `dashboard-states.html` | First load, empty range, stale refresh, failed first request, partial/unavailable values | 002 §8 |
 
 A post-token failure combines `interrupted.html`'s partial text with `failed.html`'s
 error card; the error card uses `danger` tokens, the interrupted marker uses `amber`.
@@ -71,6 +74,8 @@ Type and spacing conventions:
 | Sidebar | 260px wide, 16px brand header, 6px row radius |
 | Header | 56px tall, 1px bottom border |
 | Content column | `max-w-3xl` (768px), 24–48px horizontal padding |
+| Dashboard column | `max-w-6xl` (1152px), 16–32px horizontal padding |
+| Dashboard cards | 12px radius, `surface-elevated/40` fill, `surface-border` outline |
 | Message rhythm | 28px between turns |
 | Radius | 6px rows and small buttons, 8px buttons and inputs, 12px cards/code/modal, 16px composer and user bubble (top-right 4px) |
 
@@ -91,6 +96,30 @@ Type and spacing conventions:
   in a modal. There is no archive, no share, no export.
 - **No search, attachments, web browsing, tuning, or knowledge base.** Those are
   explicit non-goals in spec §3 and were removed from earlier drafts of these files.
+- **The dashboard is a separate page, not a second design system.** It uses the same
+  `theme.js` tokens and `shell.js` chrome as the chat screens, and the sidebar now
+  carries a **Dashboard** row above the conversation groups. The invented mobile
+  bottom bar (Chat / Sessions / Analytics / Settings) was deleted; mobile keeps the
+  off-canvas sidebar.
+- **The dashboard is read-only and metadata-only.** No model picker, export,
+  search/filter, trace viewer, context-budget/compaction section, throughput
+  histogram, cost-per-run, or pagination. It shows the seven spec overview metrics,
+  the three required trends, token totals and one estimated cost, and the latest 25
+  attempts.
+- **Status labels match the stored statuses:** `Completed`, `Failed`,
+  `Interrupted`. Interrupted keeps the amber marker from `interrupted.html`;
+  failed uses `danger`; completed stays neutral so failures and interruptions are
+  what draw the eye. Reliability bars follow the same mapping: completed is
+  `text-muted`, failed is `danger`, interrupted is `amber`.
+- **A generation attempt is a user-visible attempt, not a provider call.**
+  Automatic retries stay inside one attempt row and are shown as a count; manual
+  Retry creates a new attempt. This follows ADR-005 and supersedes the earlier
+  "one request to the model" wording in dashboard spec 002.
+- **Missing data is labelled, never guessed.** Token totals can say `partial`,
+  latency percentiles say when the sample is too thin, and cost is shown as an
+  estimate at list price with a "free tier, no billing" note.
+- **Dashboard ranges are 24h, 7 days, and 30 days.** There is no "All" option
+  because telemetry is deleted after 30 days anyway.
 
 ## Known gaps (deliberate)
 
@@ -99,3 +128,7 @@ Type and spacing conventions:
 - Long-message trimming, request-size errors, and offline behaviour are not mocked.
 - These pages are desktop-first; the shell collapses to an off-canvas sidebar below
   the `lg` breakpoint.
+- `dashboard-states.html` is a gallery of state crops, not a full-screen page for
+  each one. The populated screen is the reference for page chrome.
+- The dashboard's numbers are illustrative sample data. No mockup here is wired to
+  an API.

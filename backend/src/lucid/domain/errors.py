@@ -19,10 +19,12 @@ class ProviderError(Exception):
         *,
         detail: str | None = None,
         retry_after_seconds: float | None = None,
+        http_status: int | None = None,
     ) -> None:
         super().__init__(message or self.default_message)
         self.detail = detail
         self.retry_after_seconds = retry_after_seconds
+        self.http_status = http_status
 
 
 class ProviderRateLimited(ProviderError):

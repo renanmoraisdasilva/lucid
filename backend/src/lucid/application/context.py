@@ -31,6 +31,14 @@ class ContextBudget:
         return self.max_input_tokens - self.reserved_output_tokens - self.safety_margin_tokens
 
 
+@dataclass(frozen=True, slots=True)
+class ContextSelection:
+    """The provider messages that fit, plus the app-side prompt estimate."""
+
+    messages: list[ProviderMessage]
+    estimated_tokens: int
+
+
 def estimate_tokens(text: str) -> int:
     """Rough token estimate: four characters per token, rounded up.
 
@@ -45,7 +53,7 @@ def select_history(
     *,
     system_prompt: str,
     budget: ContextBudget,
-) -> list[ProviderMessage]:
+) -> ContextSelection:
     """Return the newest messages that fit the budget.
 
     Always includes the newest message, never starts with an assistant turn, and
@@ -73,4 +81,7 @@ def select_history(
     if not selected or selected[-1].role is not Role.USER:
         raise ContextTooLarge("The newest message does not fit in the configured input budget.")
 
-    return selected
+    estimated = estimate_tokens(system_prompt) + sum(
+        estimate_tokens(item.content) + MESSAGE_OVERHEAD_TOKENS for item in selected
+    )
+    return ContextSelection(messages=selected, estimated_tokens=estimated)

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lucid.application.conversations import list_conversations, read_conversation
 from lucid.application.cursor import Cursor
 from lucid.domain.enums import AttemptStatus, Role
+from lucid.domain.outcome import AttemptOutcome
 from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
@@ -207,9 +208,11 @@ async def test_read_conversation_marks_retryable_failed_attempts(
     )
     await AttemptRepository(session).finalize(
         attempt.id,
-        status=AttemptStatus.FAILED,
-        error_code="provider_rate_limited",
-        error_message="The model is rate limited.",
+        AttemptOutcome(
+            status=AttemptStatus.FAILED,
+            error_code="provider_rate_limited",
+            error_message="The model is rate limited.",
+        ),
     )
     await session.commit()
 
@@ -241,11 +244,13 @@ async def test_read_conversation_does_not_offer_retry_after_success(
     )
     await AttemptRepository(session).finalize(
         attempt.id,
-        status=AttemptStatus.COMPLETED,
-        assistant_message_id=assistant_message.id,
-        input_tokens=10,
-        output_tokens=20,
-        total_tokens=30,
+        AttemptOutcome(
+            status=AttemptStatus.COMPLETED,
+            assistant_message_id=assistant_message.id,
+            input_tokens=10,
+            output_tokens=20,
+            total_tokens=30,
+        ),
     )
     await session.commit()
 

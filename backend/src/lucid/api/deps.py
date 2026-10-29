@@ -1,5 +1,6 @@
 """HTTP dependencies shared by the routes."""
 
+from dataclasses import dataclass
 from typing import Annotated, cast
 
 from fastapi import Depends, Request
@@ -73,3 +74,34 @@ ProvidersDep = Annotated[ProviderRegistry, Depends(get_providers)]
 SessionFactoryDep = Annotated[
     async_sessionmaker[AsyncSession], Depends(get_session_factory_dependency)
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class StreamDeps:
+    """Everything the chat stream needs, resolved once per request.
+
+    The provider and the model are per request (they come from the catalogue and
+    the request body), so the route resolves them from `catalog`/`providers`.
+    """
+
+    system_prompt: str
+    session_factory: async_sessionmaker[AsyncSession]
+    registry: GenerationRegistry
+    cooldown: RateLimitCooldown
+    catalog: ModelCatalog
+    providers: ProviderRegistry
+
+
+def get_stream_deps(request: Request) -> StreamDeps:
+    """Bundle the streaming dependencies so routes stay small."""
+    return StreamDeps(
+        system_prompt=get_system_prompt(request),
+        session_factory=get_session_factory_dependency(request),
+        registry=get_generation_registry(request),
+        cooldown=get_cooldown(request),
+        catalog=get_catalog(request),
+        providers=get_providers(request),
+    )
+
+
+StreamDepsDep = Annotated[StreamDeps, Depends(get_stream_deps)]

@@ -1,22 +1,40 @@
 import { useEffect, useState } from "react";
 
 import type { ConversationSummary } from "./api/types";
-import { Composer } from "./components/Composer";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { MessageList } from "./components/MessageList";
 import { Sidebar } from "./components/Sidebar";
 import { useChat } from "./hooks/useChat";
+import { ChatPage } from "./pages/ChatPage";
+import { DashboardPage } from "./pages/DashboardPage";
 
-function ChatWorkspace() {
+type View = "chat" | "dashboard";
+
+function AppShell() {
   const chat = useChat();
+  const [view, setView] = useState<View>("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sidebarOpen]);
 
   useEffect(() => {
     const newChat = chat.newChat;
     function onKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        setView("chat");
         newChat();
       }
     }
@@ -24,22 +42,33 @@ function ChatWorkspace() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [chat.newChat]);
 
-  const title =
-    chat.currentId === null
-      ? "New chat"
-      : (chat.groups.flatMap((group) => group.items).find((item) => item.id === chat.currentId)
-          ?.title ?? "Conversation");
+  const openConversation = (id: string) => {
+    setSidebarOpen(false);
+    setView("chat");
+    void chat.openConversation(id);
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-bg text-text-primary">
       <Sidebar
         groups={chat.groups}
         hasConversations={chat.hasConversations}
-        currentId={chat.currentId}
+        currentId={view === "chat" ? chat.currentId : null}
         hasMore={chat.hasMore}
         loadingMore={chat.loadingMore}
-        onSelect={(id) => void chat.openConversation(id)}
-        onNew={chat.newChat}
+        activeView={view}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onSelect={openConversation}
+        onNew={() => {
+          setSidebarOpen(false);
+          setView("chat");
+          chat.newChat();
+        }}
+        onDashboard={() => {
+          setSidebarOpen(false);
+          setView("dashboard");
+        }}
         onDelete={(id) =>
           setDeleteTarget(
             chat.groups.flatMap((group) => group.items).find((item) => item.id === id) ?? null,
@@ -49,28 +78,19 @@ function ChatWorkspace() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center border-b border-surface-border px-4 sm:px-6">
-          <h1 className="truncate text-[14px] font-medium">{title}</h1>
-        </header>
-
-        <MessageList
-          messages={chat.messages}
-          streamingText={chat.streamingText}
-          streaming={chat.streaming}
-          error={chat.error}
-          onRetry={(messageId) => void chat.retry(messageId)}
-        />
-
-        <Composer
-          streaming={chat.streaming}
-          stopping={chat.stopping}
-          models={chat.models}
-          modelId={chat.modelId}
-          onSelectModel={chat.selectModel}
-          onSend={(content) => void chat.send(content)}
-          onStop={() => void chat.stop()}
-        />
+        <div className={view === "chat" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+          <ChatPage chat={chat} onOpenSidebar={() => setSidebarOpen(true)} />
+        </div>
+        {view === "dashboard" ? <DashboardPage onOpenSidebar={() => setSidebarOpen(true)} /> : null}
       </div>
+
+      {sidebarOpen ? (
+        <div
+          aria-hidden="true"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+        />
+      ) : null}
 
       {deleteTarget ? (
         <ConfirmDialog
@@ -92,7 +112,7 @@ function ChatWorkspace() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ChatWorkspace />
+      <AppShell />
     </ErrorBoundary>
   );
 }
