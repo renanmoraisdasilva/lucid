@@ -484,7 +484,7 @@ forwarded.
 | `GEMINI_TIMEOUT_SECONDS` | `60` | Overall request timeout |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `2048` | Cap on generated tokens |
 | `GENERATION_MAX_RETRIES` | `2` | Automatic retries per attempt |
-| `GENERATION_FIRST_TOKEN_TIMEOUT_SECONDS` | `25` | Abort a call with no text after this window |
+| `GENERATION_FIRST_TOKEN_TIMEOUT_SECONDS` | `50` | Abort a call with no text after this window |
 | `RETRY_BASE_DELAY_MS` | `1000` | Exponential base |
 | `RETRY_MAX_DELAY_MS` | `8000` | Backoff cap |
 | `RETRY_JITTER` | `true` | Disabled in tests for determinism |

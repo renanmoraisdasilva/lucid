@@ -57,12 +57,13 @@ class Settings(BaseSettings):
     retry_max_delay_ms: int = Field(default=8_000, ge=1)
     retry_jitter: bool = True
     generation_first_token_timeout_seconds: float = Field(
-        default=25.0,
+        default=50.0,
         gt=0,
         le=120,
         description=(
             "Abort a provider call that has produced no text within this window, so a "
-            "queued request fails with a retryable error instead of waiting blank."
+            "queued request fails with a retryable error instead of waiting blank. "
+            "Free-tier queueing has been measured at 30-40s."
         ),
     )
 
