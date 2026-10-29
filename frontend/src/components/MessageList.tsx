@@ -123,11 +123,22 @@ export function MessageList({
                 <span className="h-3.5 w-3.5 animate-pulse rounded-full border border-amber-accent" />
               </span>
               <span className="text-[15px] font-medium">Lucid</span>
-              <span className="font-mono text-[11px] text-text-muted">streaming</span>
+              <span className="font-mono text-[11px] text-text-muted">
+                {streamingText ? "streaming" : "waiting"}
+              </span>
             </header>
             <div className="markdown whitespace-pre-wrap text-[15px] leading-relaxed">
-              {streamingText}
-              <span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-amber-accent align-[-0.15em]" />
+              {streamingText ? (
+                <>
+                  {streamingText}
+                  <span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-amber-accent align-[-0.15em]" />
+                </>
+              ) : (
+                <span className="text-[13px] text-text-secondary">
+                  Waiting for the model
+                  <span className="animate-pulse">...</span>
+                </span>
+              )}
             </div>
           </article>
         ) : null}

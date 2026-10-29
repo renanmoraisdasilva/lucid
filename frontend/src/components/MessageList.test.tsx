@@ -104,4 +104,11 @@ describe("MessageList", () => {
     expect(screen.getByText("Thinking")).toBeInTheDocument();
     expect(screen.getByText("streaming")).toBeInTheDocument();
   });
+
+  it("shows a waiting state before the first token arrives", () => {
+    renderList({ streamingText: "", streaming: true });
+
+    expect(screen.getByText("waiting")).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for the model/)).toBeInTheDocument();
+  });
 });

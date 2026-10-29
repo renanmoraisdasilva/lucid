@@ -42,6 +42,7 @@ def test_defaults_match_the_spec() -> None:
     assert settings.gemini_model == "gemini-3.5-flash-lite"
     assert settings.gemini_max_output_tokens == 2048
     assert settings.gemini_timeout_seconds == 60.0
+    assert settings.gemini_thinking_level == "low"
 
 
 def test_system_prompt_path_defaults_inside_the_backend() -> None:

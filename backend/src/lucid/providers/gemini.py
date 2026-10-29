@@ -55,6 +55,21 @@ def to_step(message: ProviderMessage) -> dict[str, object]:
     }
 
 
+def build_generation_config(
+    *, max_output_tokens: int, thinking_level: str | None
+) -> dict[str, object]:
+    """Build the provider generation config.
+
+    ``thinking_level`` is set explicitly: the provider default can spend ~25s
+    before emitting the first token on gemini-3.5-flash-lite, which looks like a
+    hung request in the UI. It is omitted entirely when not configured.
+    """
+    config: dict[str, object] = {"max_output_tokens": max_output_tokens}
+    if thinking_level:
+        config["thinking_level"] = thinking_level
+    return config
+
+
 def map_usage(usage: object | None) -> Usage | None:
     """Map provider usage metadata, tolerating absent fields."""
     if usage is None:
@@ -141,9 +156,11 @@ class GeminiProvider:
         model: str,
         timeout_seconds: float = 60.0,
         max_output_tokens: int = 2048,
+        thinking_level: str | None = "low",
     ) -> None:
         self._model = model
         self._max_output_tokens = max_output_tokens
+        self._thinking_level = thinking_level
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000)),
@@ -155,7 +172,10 @@ class GeminiProvider:
                 model=request.model or self._model,
                 input=[to_step(message) for message in request.messages],
                 system_instruction=request.system_prompt,
-                generation_config={"max_output_tokens": request.max_output_tokens},
+                generation_config=build_generation_config(
+                    max_output_tokens=request.max_output_tokens,
+                    thinking_level=self._thinking_level,
+                ),
                 stream=True,
                 store=False,
                 automatic_continuation=False,

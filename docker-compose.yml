@@ -26,6 +26,7 @@ services:
       PROVIDER: ${PROVIDER:-gemini}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_THINKING_LEVEL: ${GEMINI_THINKING_LEVEL:-low}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       RECONCILE_ON_STARTUP: "true"
     depends_on:

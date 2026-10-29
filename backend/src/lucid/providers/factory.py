@@ -24,5 +24,6 @@ def build_provider(settings: Settings) -> ChatProvider:
             model=settings.gemini_model,
             timeout_seconds=settings.gemini_timeout_seconds,
             max_output_tokens=settings.gemini_max_output_tokens,
+            thinking_level=settings.gemini_thinking_level,
         )
     assert_never(settings.provider)

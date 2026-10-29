@@ -14,6 +14,7 @@ from lucid.domain.errors import (
 )
 from lucid.domain.provider import ProviderMessage, StreamCompleted, TextDelta
 from lucid.providers.gemini import (
+    build_generation_config,
     classify_exception,
     map_event,
     map_usage,
@@ -48,6 +49,23 @@ def test_assistant_message_maps_to_model_output_step() -> None:
     step = to_step(ProviderMessage(role=Role.ASSISTANT, content="hi"))
 
     assert step == {"type": "model_output", "content": [{"type": "text", "text": "hi"}]}
+
+
+def test_generation_config_always_caps_output() -> None:
+    config = build_generation_config(max_output_tokens=512, thinking_level=None)
+
+    assert config == {"max_output_tokens": 512}
+
+
+def test_generation_config_sets_thinking_level() -> None:
+    """Regression: the provider default spent ~25s before the first token."""
+    config = build_generation_config(max_output_tokens=512, thinking_level="low")
+
+    assert config == {"max_output_tokens": 512, "thinking_level": "low"}
+
+
+def test_generation_config_omits_blank_thinking_level() -> None:
+    assert "thinking_level" not in build_generation_config(max_output_tokens=64, thinking_level="")
 
 
 def test_text_delta_is_mapped() -> None:

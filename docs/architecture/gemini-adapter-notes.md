@@ -103,6 +103,36 @@ therefore classifies by status code and by class name instead of importing them.
 Domain error messages are fixed strings; provider text is kept in
 `ProviderError.detail` for logs only.
 
+## First-token latency and thinking level
+
+Measured on 2026-10-29, two samples minutes apart, same network, same prompt
+("Hi" in sample A):
+
+| Sample | Model / setting | First text token | Total |
+|---|---|---|---|
+| A | `gemini-3.5-flash-lite`, provider default | **24.95s** | 25.37s |
+| A | `gemini-3.5-flash-lite`, `thinking_level="low"` | **0.87s** | 0.88s |
+| A | `gemini-3.6-flash`, provider default | 2.33s | 2.34s |
+| B | `gemini-3.5-flash-lite`, `thinking_level="minimal"` | 44.22s | 44.42s |
+| B | `gemini-3.5-flash-lite`, `thinking_level="low"` | 34.35s | 34.57s |
+| B | `gemini-3.5-flash-lite`, `thinking_level="medium"` | 32.31s | 32.43s |
+
+**Conclusion: provider-side queueing dominates.** In sample A the default took
+25s with zero events — even `interaction.created` arrived at 24.9s — so the
+request had not been accepted yet, while the same moment accepted
+`gemini-3.6-flash` in 2.3s. In sample B every thinking level on the lite model was
+slow, so raising or lowering effort cannot fix capacity waits. Our stack is not
+the bottleneck: `meta` reaches the browser in 40–200ms.
+
+`thinking_level` is still set explicitly (default `low`) because it removes
+reasoning latency when the model does reason, and `"none"` is rejected (`400`;
+valid values are `minimal`, `low`, `medium`, `high`). It is a secondary lever, not
+the fix for free-tier scheduling delay.
+
+`tests/live/test_provider_latency.py` measures first-token latency against the
+real provider and is skipped unless `LUCID_LIVE_TESTS=1`; no fake-provider test
+can observe this class of problem.
+
 ## Token counting
 
 `client.aio.models.count_tokens` exists, but it accepts `generateContent` content

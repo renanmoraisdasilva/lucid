@@ -57,4 +57,5 @@ asyncio_default_fixture_loop_scope = "function"
 addopts = "-ra"
 markers = [
     "integration: requires a running PostgreSQL instance (DATABASE_URL)",
+    "live: calls the real model provider; opt in with LUCID_LIVE_TESTS=1",
 ]

@@ -147,9 +147,10 @@ Open http://127.0.0.1:5173. The page reports `API: ok` when the dev proxy can
 reach the backend.
 
 Configuration is read from the repository-root `.env` first, then `backend/.env`,
-so a local override next to the code wins. `PROVIDER=gemini` requires
-`GEMINI_API_KEY`; `PROVIDER=fake` runs the scripted provider with no key and no
-network access.
+so a local override next to the code wins. Every setting has a working default in
+`backend/src/lucid/config.py`; `.env` only needs secrets and deliberate
+overrides. `PROVIDER=gemini` requires `GEMINI_API_KEY`; `PROVIDER=fake` runs the
+scripted provider with no key and no network access.
 
 ### Whole stack in Docker
 
@@ -202,6 +203,23 @@ npm run build
 Integration tests run against the Compose database and **truncate the chat
 tables** between cases. They skip automatically when no database is reachable.
 Point them elsewhere with `TEST_DATABASE_URL`.
+
+## Testing
+
+| Layer | Covers | Command |
+|---|---|---|
+| Unit | context selection, retry policy, titles, cursors, provider mapping | `uv run pytest tests/unit` |
+| Integration | real PostgreSQL, migrations, SSE frame sequence, stop/disconnect, retries, reconciliation | `uv run pytest tests/integration` |
+| Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, delete dialog | `npm test` |
+| Live (opt-in) | real provider streaming and **first-token latency** | `$env:LUCID_LIVE_TESTS=1; uv run pytest tests/live` |
+
+The live suite exists because the fake provider is instantaneous: it cannot
+observe a provider that takes 25 seconds to produce a token. It is opt-in so the
+normal suite stays offline and free.
+
+**Known gap:** there is no browser-level end-to-end test (Playwright). The layers
+above would not catch a purely visual or focus-management regression in the
+assembled app.
 
 ## Layout
 
