@@ -1,6 +1,6 @@
 # Lucid dashboard — implementation plan
 
-**Status:** Draft for implementation
+**Status:** Implemented 2026-10-29 (D0–D7)
 **Spec:** [002 — Lucid Dashboard](../specs/002-lucid-dashboard-spec.md)
 **Mockups:** [dashboard.html](../screen-mockups/dashboard.html), [dashboard-states.html](../screen-mockups/dashboard-states.html)
 **Prerequisite:** [code health budget](./code-health-budget.md) and its hot-spot
