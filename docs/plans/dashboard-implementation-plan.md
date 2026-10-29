@@ -380,14 +380,16 @@ unchanged.
 
 ### D2 — Pricing and retention
 
-- [ ] Settings and `.env.example` placeholders.
-- [ ] Decimal estimate, availability and free-tier flag.
-- [ ] Startup + 24h retention task with logging.
-- [ ] Tests: rounding, missing rates, partial usage; old attempts deleted, recent
+- [x] Settings and `.env.example` placeholders.
+- [x] Decimal estimate, availability and free-tier flag.
+- [x] Startup + 24h retention task with logging.
+- [x] Tests: rounding, missing rates, partial usage; old attempts deleted, recent
       attempts and all conversations/messages kept.
 
 **Exit:** a seeded database can be aged and cleaned; cost tests do not depend on
 the environment.
+**Done 2026-10-29.** 216 backend tests pass; see the D2 report in
+`code-health-budget.md` §4.3.
 
 ### D3 — Aggregation and API
 

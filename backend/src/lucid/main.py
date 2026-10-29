@@ -1,8 +1,9 @@
 """FastAPI application factory."""
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
@@ -11,6 +12,10 @@ from lucid.api.routes_chat import router as chat_router
 from lucid.api.routes_conversations import router as conversations_router
 from lucid.api.routes_health import router as health_router
 from lucid.application.cooldown import RateLimitCooldown
+from lucid.application.dashboard.retention import (
+    delete_expired_attempts,
+    periodic_retention,
+)
 from lucid.application.prompts import load_system_prompt
 from lucid.application.registry import GenerationRegistry
 from lucid.config import get_settings
@@ -40,17 +45,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     if settings.reconcile_on_startup:
         await reconcile_stale_attempts(app.state.session_factory)
 
+    await delete_expired_attempts(
+        app.state.session_factory,
+        retention_days=settings.telemetry_retention_days,
+    )
+    retention_task = asyncio.create_task(
+        periodic_retention(
+            app.state.session_factory,
+            retention_days=settings.telemetry_retention_days,
+        )
+    )
+
     logger.info(
         "startup complete",
         extra={
             "ctx_provider": settings.provider,
             "ctx_model": settings.gemini_model,
             "ctx_context_tokens": settings.context_max_input_tokens,
+            "ctx_retention_days": settings.telemetry_retention_days,
         },
     )
     try:
         yield
     finally:
+        retention_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await retention_task
         await app.state.registry.cancel_all()
         await dispose_engine()
 

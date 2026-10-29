@@ -265,6 +265,14 @@ trend; the scan is the detail.
 - New backend files: `chat/telemetry.py` (25), `chat/events.py` (90), migration 0003 (72). Net +138 source lines.
 - Violations: none. The new fields are metadata only; no prompts or message bodies entered telemetry.
 
+### D2 health report (2026-10-29)
+
+- Backend: 216 tests, 3,730 source + 3,676 test lines, **89.0% coverage** (75.4% branches), no C–F functions, minimum MI 42.00.
+- New files: `dashboard/pricing.py` (56 lines, 100% covered) and `dashboard/retention.py` (59 lines, 92%).
+- Frontend unchanged at 63 tests, 1,618 source + 1,169 test lines, 87.4% lines / 78.3% branches.
+- Warning: the startup/24-hour wiring in `main.py` is verified by the retention function tests and the startup checklist, not by a lifespan unit test.
+- Violations: none.
+
 The report is the answer to "is this getting out of hand?" If a number moves the
 wrong way, the milestone is not done until it is explained or fixed.
 
