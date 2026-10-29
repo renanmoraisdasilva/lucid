@@ -237,6 +237,60 @@ describe("App", () => {
     expect(modelPicker()).not.toBeDisabled();
   });
 
+  it("returns focus to the composer when a response finishes", async () => {
+    const gate = { close: () => {} };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url === "/api/models") {
+          return modelsResponse();
+        }
+        if (url === "/api/chat") {
+          const encoder = new TextEncoder();
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(encoder.encode(metaFrame()));
+              controller.enqueue(encoder.encode('event: delta\ndata: {"text":"pong"}\n\n'));
+              gate.close = () => controller.close();
+            },
+          });
+          return new Response(body, {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream" },
+          });
+        }
+        if (url.startsWith("/api/conversations?")) {
+          return jsonResponse({ items: [], next_cursor: null, has_more: false });
+        }
+        if (url === `/api/conversations/${CONVERSATION_ID}`) {
+          return jsonResponse({ ...conversationDetail, messages: [] });
+        }
+        throw new Error(`Unexpected request: ${init?.method ?? "GET"} ${url}`);
+      }),
+    );
+    const user = userEvent.setup();
+
+    renderApp();
+
+    const composer = screen.getByLabelText("Message Lucid");
+    await user.type(composer, "Hello Lucid{Enter}");
+
+    expect(await screen.findByRole("button", { name: "Stop" })).toBeInTheDocument();
+
+    gate.close();
+
+    await waitFor(() => {
+      expect(composer).not.toBeDisabled();
+    });
+    await waitFor(() => {
+      expect(composer).toHaveFocus();
+    });
+
+    await user.keyboard("again");
+    expect(composer).toHaveValue("again");
+  });
+
   it("disables the composer while a response is streaming", async () => {
     const gate = { close: () => {} };
     vi.stubGlobal(

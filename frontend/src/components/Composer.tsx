@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ModelOption } from "../api/types";
 import { ModelPicker } from "./ModelPicker";
@@ -25,6 +25,28 @@ export function Composer({
   onStop,
 }: ComposerProps) {
   const [draft, setDraft] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const wasStreamingRef = useRef(streaming);
+
+  // Disabling the textarea while a response streams also blurs it. When the
+  // response ends, put the caret back so the next message needs no click, but
+  // leave focus alone if the user moved somewhere else in the meantime.
+  useEffect(() => {
+    const wasStreaming = wasStreamingRef.current;
+    wasStreamingRef.current = streaming;
+    if (!wasStreaming || streaming) {
+      return;
+    }
+    const active = document.activeElement;
+    const focusIsFree =
+      active === null ||
+      active === document.body ||
+      active === document.documentElement ||
+      active === textareaRef.current;
+    if (focusIsFree) {
+      textareaRef.current?.focus();
+    }
+  }, [streaming]);
 
   function submit() {
     const content = draft.trim();
@@ -49,6 +71,7 @@ export function Composer({
           </label>
           <textarea
             id="composer"
+            ref={textareaRef}
             rows={1}
             value={draft}
             disabled={streaming}
