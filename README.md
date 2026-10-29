@@ -124,6 +124,32 @@ A new shell is required after `winget install` for `uv` to be on `PATH`.
 
 ## Quickstart
 
+### The one-command path (host processes)
+
+```powershell
+npm install                   # once, for the root dev tooling
+Copy-Item .env.example .env   # paste GEMINI_API_KEY into .env
+npm run dev
+```
+
+`npm run dev` starts PostgreSQL in Compose, syncs Python dependencies, applies
+migrations, then runs the API with reload on `http://127.0.0.1:8000` and the web
+app on `http://127.0.0.1:5173`. Stop everything with Ctrl+C. Individual pieces:
+`npm run dev:db`, `npm run dev:prepare`, `npm run dev:api`, `npm run dev:web`.
+
+For instant replies without spending quota, set `PROVIDER=fake` in `.env`; the
+scripted provider needs no API key.
+
+**`--reload` watches Python files, not `.env`.** Settings are read once at
+startup, so after changing `.env` stop and restart `npm run dev`. `.env.example`
+is only a template — nothing reads it; put real values in `.env` at the repo root.
+Every setting also has a default in `backend/src/lucid/config.py`.
+
+If you have the Docker stack running, stop it first (`npm run dev:stack:down`),
+because it owns ports 8000 and 8080.
+
+### Manual steps
+
 ```powershell
 # 1. Configuration
 Copy-Item .env.example .env      # edit if you want different credentials
