@@ -1,12 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import type { ConversationSummary } from "./api/types";
 import { Composer } from "./components/Composer";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MessageList } from "./components/MessageList";
 import { Sidebar } from "./components/Sidebar";
 import { useChat } from "./hooks/useChat";
 
-export default function App() {
+function ChatWorkspace() {
   const chat = useChat();
+  const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
 
   useEffect(() => {
     const newChat = chat.newChat;
@@ -23,20 +27,25 @@ export default function App() {
   const title =
     chat.currentId === null
       ? "New chat"
-      : (chat.conversations.find((item) => item.id === chat.currentId)?.title ?? "Conversation");
+      : (chat.groups.flatMap((group) => group.items).find((item) => item.id === chat.currentId)
+          ?.title ?? "Conversation");
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface-bg text-text-primary">
       <Sidebar
-        conversations={chat.conversations}
+        groups={chat.groups}
+        hasConversations={chat.hasConversations}
         currentId={chat.currentId}
+        hasMore={chat.hasMore}
+        loadingMore={chat.loadingMore}
         onSelect={(id) => void chat.openConversation(id)}
         onNew={chat.newChat}
-        onDelete={(id) => {
-          if (window.confirm("Delete this conversation permanently?")) {
-            void chat.removeConversation(id);
-          }
-        }}
+        onDelete={(id) =>
+          setDeleteTarget(
+            chat.groups.flatMap((group) => group.items).find((item) => item.id === id) ?? null,
+          )
+        }
+        onLoadMore={chat.loadMore}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -48,7 +57,6 @@ export default function App() {
           messages={chat.messages}
           streamingText={chat.streamingText}
           streaming={chat.streaming}
-          usage={chat.usage}
           error={chat.error}
           onRetry={(messageId) => void chat.retry(messageId)}
         />
@@ -60,6 +68,28 @@ export default function App() {
           onStop={() => void chat.stop()}
         />
       </div>
+
+      {deleteTarget ? (
+        <ConfirmDialog
+          title="Delete conversation?"
+          body={`\u201c${deleteTarget.title}\u201d and its messages will be permanently deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            const id = deleteTarget.id;
+            setDeleteTarget(null);
+            void chat.removeConversation(id);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <ChatWorkspace />
+    </ErrorBoundary>
   );
 }

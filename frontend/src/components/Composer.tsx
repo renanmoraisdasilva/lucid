@@ -58,7 +58,9 @@ export function Composer({ streaming, stopping, onSend, onStop }: ComposerProps)
               </span>
             ) : (
               <span className="font-mono text-[11px] text-text-muted">
-                Enter to send &middot; Shift + Enter for new line
+                {draft.length > MAX_LENGTH - 1_000
+                  ? `${draft.length} / ${MAX_LENGTH}`
+                  : "Enter to send \u00b7 Shift + Enter for new line"}
               </span>
             )}
 

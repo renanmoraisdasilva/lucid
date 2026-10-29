@@ -44,7 +44,6 @@ function renderList(overrides: Partial<Parameters<typeof MessageList>[0]> = {}) 
     messages: [USER_MESSAGE, ASSISTANT_MESSAGE],
     streamingText: "",
     streaming: false,
-    usage: null,
     error: null,
     onRetry: vi.fn(),
     ...overrides,

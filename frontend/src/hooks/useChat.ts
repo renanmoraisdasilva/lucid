@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -9,7 +10,8 @@ import {
   streamChat,
   streamRetry,
 } from "../api/client";
-import type { ConversationSummary, Message, StreamEvent, Usage } from "../api/types";
+import type { Message, StreamEvent } from "../api/types";
+import { groupConversations, type ConversationGroup } from "../lib/grouping";
 
 export interface ChatError {
   code: string;
@@ -18,15 +20,18 @@ export interface ChatError {
   messageId: string | null;
 }
 
-export interface UseChat {
-  conversations: ConversationSummary[];
+export interface ChatController {
+  groups: ConversationGroup[];
+  hasConversations: boolean;
   currentId: string | null;
   messages: Message[];
   streamingText: string;
-  usage: Usage | null;
   error: ChatError | null;
   streaming: boolean;
   stopping: boolean;
+  hasMore: boolean;
+  loadingMore: boolean;
+  loadMore: () => void;
   send: (content: string) => Promise<void>;
   retry: (messageId: string) => Promise<void>;
   stop: () => Promise<void>;
@@ -35,18 +40,17 @@ export interface UseChat {
   removeConversation: (id: string) => Promise<void>;
 }
 
-export function useChat(): UseChat {
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+export function useChat(): ChatController {
+  const queryClient = useQueryClient();
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
-  const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState<ChatError | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [stopping, setStopping] = useState(false);
 
+  const conversationIdRef = useRef<string | null>(null);
   const attemptRef = useRef<string | null>(null);
-  const conversationRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
@@ -57,60 +61,66 @@ export function useChat(): UseChat {
     };
   }, []);
 
-  const refreshConversations = useCallback(async () => {
-    try {
-      const page = await listConversations();
-      if (mountedRef.current) {
-        setConversations(page.items);
-      }
-    } catch {
-      // The sidebar is not worth an error banner; the thread shows failures.
-    }
-  }, []);
+  const conversationsQuery = useInfiniteQuery({
+    queryKey: ["conversations"],
+    queryFn: ({ pageParam, signal }) => listConversations(pageParam, signal),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.next_cursor : undefined),
+    retry: false,
+  });
 
-  const loadConversation = useCallback(async (id: string) => {
-    const detail = await getConversation(id);
-    if (!mountedRef.current) {
-      return;
-    }
-    setCurrentId(detail.id);
-    conversationRef.current = detail.id;
-    setMessages(detail.messages);
-    setStreamingText("");
-    setError(null);
-    setUsage(null);
-  }, []);
+  // Reads pause while streaming so the optimistic turn is not duplicated.
+  const conversationQuery = useQuery({
+    queryKey: ["conversation", currentId],
+    queryFn: ({ signal }) => getConversation(currentId as string, signal),
+    enabled: currentId !== null && !streaming,
+    retry: false,
+  });
 
-  useEffect(() => {
-    const controller = new AbortController();
-    listConversations(controller.signal)
-      .then((page) => {
-        if (!controller.signal.aborted) {
-          setConversations(page.items);
-        }
-      })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, []);
+  const conversations = useMemo(
+    () => conversationsQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [conversationsQuery.data],
+  );
+  const groups = useMemo(() => groupConversations(conversations), [conversations]);
+
+  const messages = useMemo(() => {
+    const persisted = conversationQuery.data?.messages ?? [];
+    if (pendingUser === null) {
+      return persisted;
+    }
+    const optimistic: Message = {
+      id: "optimistic",
+      role: "user",
+      seq: Number.MAX_SAFE_INTEGER,
+      content: pendingUser,
+      created_at: new Date().toISOString(),
+      attempt: null,
+    };
+    return [...persisted, optimistic];
+  }, [conversationQuery.data, pendingUser]);
+
+  const invalidate = useCallback(
+    async (conversationId: string | null) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["conversations"] }),
+        conversationId === null
+          ? Promise.resolve()
+          : queryClient.invalidateQueries({ queryKey: ["conversation", conversationId] }),
+      ]);
+    },
+    [queryClient],
+  );
 
   const runStream = useCallback(
-    async (events: AsyncGenerator<StreamEvent>, optimisticUserText: string) => {
+    async (events: AsyncGenerator<StreamEvent>, optimisticUserText: string | null) => {
       setStreaming(true);
       setStopping(false);
       setError(null);
-      setUsage(null);
       setStreamingText("");
+      if (optimisticUserText !== null) {
+        setPendingUser(optimisticUserText);
+      }
       attemptRef.current = null;
-
-      const optimistic: Message = {
-        id: `optimistic-${Date.now()}`,
-        role: "user",
-        seq: Number.MAX_SAFE_INTEGER,
-        content: optimisticUserText,
-        created_at: new Date().toISOString(),
-        attempt: null,
-      };
-      setMessages((previous) => [...previous, optimistic]);
 
       let text = "";
       let failed: ChatError | null = null;
@@ -118,14 +128,12 @@ export function useChat(): UseChat {
       try {
         for await (const event of events) {
           if (event.type === "meta") {
+            conversationIdRef.current = event.data.conversation_id;
             setCurrentId(event.data.conversation_id);
-            conversationRef.current = event.data.conversation_id;
             attemptRef.current = event.data.attempt_id;
           } else if (event.type === "delta") {
             text += event.data.text;
             setStreamingText(text);
-          } else if (event.type === "usage") {
-            setUsage(event.data);
           } else if (event.type === "error") {
             failed = {
               code: event.data.code,
@@ -149,6 +157,7 @@ export function useChat(): UseChat {
           setStreaming(false);
           setStopping(false);
           setStreamingText("");
+          setPendingUser(null);
           attemptRef.current = null;
         }
       }
@@ -157,21 +166,12 @@ export function useChat(): UseChat {
         return;
       }
 
-      const id = conversationRef.current;
-      if (id) {
-        try {
-          await loadConversation(id);
-        } catch {
-          // Keep whatever is on screen; the next action retries the fetch.
-        }
-      }
-      await refreshConversations();
-
+      await invalidate(conversationIdRef.current);
       if (failed) {
         setError(failed);
       }
     },
-    [loadConversation, refreshConversations],
+    [invalidate],
   );
 
   const send = useCallback(
@@ -183,7 +183,7 @@ export function useChat(): UseChat {
       abortRef.current = controller;
       try {
         const events = await streamChat({
-          conversationId: currentId,
+          conversationId: conversationIdRef.current,
           content,
           signal: controller.signal,
         });
@@ -199,12 +199,12 @@ export function useChat(): UseChat {
         }
       }
     },
-    [currentId, runStream, streaming],
+    [runStream, streaming],
   );
 
   const retry = useCallback(
     async (messageId: string) => {
-      const id = conversationRef.current;
+      const id = conversationIdRef.current;
       if (!id || streaming) {
         return;
       }
@@ -216,7 +216,7 @@ export function useChat(): UseChat {
           messageId,
           signal: controller.signal,
         });
-        await runStream(events, "");
+        await runStream(events, null);
       } catch (caught) {
         if (mountedRef.current) {
           setError({
@@ -232,7 +232,7 @@ export function useChat(): UseChat {
   );
 
   const stop = useCallback(async () => {
-    const id = conversationRef.current;
+    const id = conversationIdRef.current;
     const attemptId = attemptRef.current;
     if (!id || !attemptId || stopping) {
       return;
@@ -241,47 +241,62 @@ export function useChat(): UseChat {
     try {
       await stopGeneration(id, attemptId);
     } catch {
-      // The stream will still end; the server closes it either way.
+      // The stream still ends; the server closes it either way.
     }
   }, [stopping]);
 
-  const openConversation = useCallback(
-    async (id: string) => {
-      setError(null);
-      await loadConversation(id);
-    },
-    [loadConversation],
-  );
-
-  const newChat = useCallback(() => {
-    setCurrentId(null);
-    conversationRef.current = null;
-    setMessages([]);
+  const openConversation = useCallback(async (id: string) => {
+    conversationIdRef.current = id;
+    setCurrentId(id);
+    setPendingUser(null);
     setStreamingText("");
-    setUsage(null);
     setError(null);
   }, []);
 
-  const removeConversation = useCallback(
-    async (id: string) => {
-      await deleteConversation(id);
-      if (conversationRef.current === id) {
+  const newChat = useCallback(() => {
+    conversationIdRef.current = null;
+    setCurrentId(null);
+    setPendingUser(null);
+    setStreamingText("");
+    setError(null);
+  }, []);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteConversation(id),
+    onSuccess: async (_result, id) => {
+      if (conversationIdRef.current === id) {
         newChat();
       }
-      await refreshConversations();
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.removeQueries({ queryKey: ["conversation", id] });
     },
-    [newChat, refreshConversations],
+  });
+
+  const removeConversation = useCallback(
+    async (id: string) => {
+      await deleteMutation.mutateAsync(id);
+    },
+    [deleteMutation],
   );
 
+  const loadMore = useCallback(() => {
+    if (conversationsQuery.hasNextPage && !conversationsQuery.isFetchingNextPage) {
+      void conversationsQuery.fetchNextPage();
+    }
+  }, [conversationsQuery]);
+
   return {
-    conversations,
+    groups,
+    hasConversations: conversations.length > 0,
     currentId,
     messages,
     streamingText,
-    usage,
     error,
     streaming,
     stopping,
+    hasMore: conversationsQuery.hasNextPage,
+    loadingMore: conversationsQuery.isFetchingNextPage,
+    loadMore,
     send,
     retry,
     stop,

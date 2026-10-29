@@ -10,12 +10,8 @@ without hiding behind a framework or an agent library.
 
 ## Status
 
-**Milestone 5 (context, usage, resilience) complete.** Only a bounded, budgeted
-slice of history is sent to the model, transient provider failures are retried
-inside a single attempt, and attempts stranded by a crash are reconciled at
-startup. Verified live: a seeded `in_progress` attempt became
-`interrupted / process_restart` on boot, and a normal chat still streamed to
-completion afterwards.
+**Milestone 6 (UI polish and acceptance) complete. The MVP meets the spec's
+acceptance criteria.**
 
 | Milestone | State |
 |---|---|
@@ -25,7 +21,33 @@ completion afterwards.
 | 3 — Provider boundary and Gemini adapter | ✅ |
 | 4 — Streaming chat | ✅ |
 | 5 — Context, usage, resilience | ✅ |
-| 6 — UI polish and acceptance | ⬜ next |
+| 6 — UI polish and acceptance | ✅ |
+
+### Acceptance results (2026-10-29)
+
+| Criterion (spec §12) | Result |
+|---|---|
+| Start frontend, backend, and PostgreSQL via Compose from documented steps | ✅ `docker compose --profile full up --build`; all three healthy, SPA on `:8080` |
+| Create a new chat by submitting the first message | ✅ Live + integration tests |
+| Receive a streamed Gemini response | ✅ Live through the nginx proxy (deltas, usage, `done`) |
+| Conversations persist across restarts | ✅ Backend container restarted; conversation and both messages intact |
+| Sidebar newest first with pagination | ✅ `useInfiniteQuery` + keyset API; API pagination tests |
+| Titles derived, capped at 80, ellipsized | ✅ Unit tests, CSS truncation |
+| Open, continue, delete conversations | ✅ Integration tests + modal confirmation |
+| Safe Markdown, highlighting, per-block copy | ✅ Sanitization and copy tests (`<script>`, `javascript:`, `<iframe>`, `onerror`) |
+| Stop generation preserves partial text | ✅ Service tests + live disconnect (43-character interrupted message) |
+| Refresh/disconnect during generation | ✅ Live `curl` abort produced `interrupted` with no active attempt |
+| Composer locked while generating | ✅ UI test + `409 generation_in_progress` |
+| Provider failures handled, original message retryable | ✅ Retry matrix tests, failed attempt persisted |
+| Attempts and statuses persisted separately | ✅ Schema constraints and lifecycle tests |
+| Per-response token usage | ✅ Live `117 in / 1 out`, or `usage unavailable` |
+| Full history stored, bounded context sent | ✅ Context selection tests; provider request bounded |
+| Automated coverage of core behaviour | ✅ 177 backend, 31 frontend |
+
+Not exercised end to end, and listed in
+[`docs/architecture/gemini-adapter-notes.md`](docs/architecture/gemini-adapter-notes.md):
+`finish_reason: "length"` when the output cap is hit, and the stop grace timer
+against a stalled provider.
 
 ## Documentation
 
@@ -128,6 +150,22 @@ Configuration is read from the repository-root `.env` first, then `backend/.env`
 so a local override next to the code wins. `PROVIDER=gemini` requires
 `GEMINI_API_KEY`; `PROVIDER=fake` runs the scripted provider with no key and no
 network access.
+
+### Whole stack in Docker
+
+```powershell
+docker compose --profile full up -d --build
+```
+
+| Service | URL |
+|---|---|
+| SPA (nginx) | http://127.0.0.1:8080 |
+| API (uvicorn) | http://127.0.0.1:8000 |
+| PostgreSQL | localhost:5432 |
+
+The backend image applies Alembic migrations before serving. nginx proxies
+`/api/` with buffering disabled so SSE passes through. Stop it with
+`docker compose --profile full down`.
 
 | Endpoint | Purpose |
 |---|---|

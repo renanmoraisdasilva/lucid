@@ -1,11 +1,13 @@
-import type { Message, Usage } from "../api/types";
+import { useEffect, useRef } from "react";
+
+import type { Message } from "../api/types";
 import type { ChatError } from "../hooks/useChat";
+import { Markdown } from "./Markdown";
 
 interface MessageListProps {
   messages: Message[];
   streamingText: string;
   streaming: boolean;
-  usage: Usage | null;
   error: ChatError | null;
   onRetry: (messageId: string) => void;
 }
@@ -14,7 +16,8 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function UsageLine({ usage }: { usage: Usage | null }) {
+function UsageLine({ message }: { message: Message }) {
+  const usage = message.attempt?.usage ?? null;
   if (usage === null || (usage.input_tokens === null && usage.output_tokens === null)) {
     return <span className="font-mono text-[11px] text-text-muted">usage unavailable</span>;
   }
@@ -29,10 +32,21 @@ export function MessageList({
   messages,
   streamingText,
   streaming,
-  usage,
   error,
   onRetry,
 }: MessageListProps) {
+  const scrollRef = useRef<HTMLElement | null>(null);
+  const stickToBottom = useRef(true);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (element && stickToBottom.current) {
+      element.scrollTop = element.scrollHeight;
+    }
+  }, [messages, streamingText]);
+
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+
   if (messages.length === 0 && !streaming) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
@@ -47,10 +61,16 @@ export function MessageList({
     );
   }
 
-  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
-
   return (
-    <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+    <main
+      ref={scrollRef}
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        stickToBottom.current =
+          element.scrollHeight - element.scrollTop - element.clientHeight < 80;
+      }}
+      className="flex-1 overflow-y-auto px-4 py-6 sm:px-8"
+    >
       <div className="mx-auto w-full max-w-3xl space-y-7">
         {messages.map((message) =>
           message.role === "user" ? (
@@ -58,8 +78,8 @@ export function MessageList({
               <span className="mb-1.5 text-[11px] text-text-muted">
                 {formatTime(message.created_at)}
               </span>
-              <div className="max-w-[94%] rounded-2xl rounded-tr-xs border border-surface-border-subtle bg-surface-elevated p-4 text-[14px] leading-relaxed shadow-sm sm:max-w-[85%]">
-                <p className="whitespace-pre-wrap">{message.content}</p>
+              <div className="max-w-[94%] whitespace-pre-wrap rounded-2xl rounded-tr-xs border border-surface-border-subtle bg-surface-elevated p-4 text-[14px] leading-relaxed shadow-sm sm:max-w-[85%]">
+                {message.content}
               </div>
               {message.attempt?.retryable ? (
                 <button
@@ -79,7 +99,7 @@ export function MessageList({
                   <span className="h-3.5 w-3.5 rounded-full border border-amber-accent" />
                 </span>
                 <span className="text-[15px] font-medium">Lucid</span>
-                <UsageLine usage={message.attempt?.usage ?? null} />
+                <UsageLine message={message} />
                 {message.attempt?.status === "interrupted" ? (
                   <span className="rounded-full border border-amber-border bg-amber-dim px-2 py-0.5 text-[11px] font-medium text-amber-accent">
                     Interrupted
@@ -91,7 +111,7 @@ export function MessageList({
                   </span>
                 ) : null}
               </header>
-              <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{message.content}</p>
+              <Markdown content={message.content} />
             </article>
           ),
         )}
@@ -105,10 +125,10 @@ export function MessageList({
               <span className="text-[15px] font-medium">Lucid</span>
               <span className="font-mono text-[11px] text-text-muted">streaming</span>
             </header>
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed">
+            <div className="markdown whitespace-pre-wrap text-[15px] leading-relaxed">
               {streamingText}
               <span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-amber-accent align-[-0.15em]" />
-            </p>
+            </div>
           </article>
         ) : null}
 
@@ -135,10 +155,6 @@ export function MessageList({
               </button>
             ) : null}
           </div>
-        ) : null}
-
-        {!streaming && usage ? (
-          <p className="sr-only">Usage reported for the last response.</p>
         ) : null}
       </div>
     </main>

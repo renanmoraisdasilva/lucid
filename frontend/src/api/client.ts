@@ -36,8 +36,17 @@ async function requestJson<T>(input: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function listConversations(signal?: AbortSignal): Promise<ConversationListResponse> {
-  return requestJson<ConversationListResponse>("/api/conversations", { signal });
+export function listConversations(
+  cursor?: string | null,
+  signal?: AbortSignal,
+): Promise<ConversationListResponse> {
+  const params = new URLSearchParams({ limit: "20" });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
+  return requestJson<ConversationListResponse>(`/api/conversations?${params.toString()}`, {
+    signal,
+  });
 }
 
 export function getConversation(id: string, signal?: AbortSignal): Promise<ConversationDetail> {
