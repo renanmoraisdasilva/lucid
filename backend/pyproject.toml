@@ -1,7 +1,7 @@
 [project]
-name = "chatbot-mvp-backend"
+name = "lucid-backend"
 version = "0.1.0"
-description = "Chatbot MVP backend: FastAPI, PostgreSQL, streamed Gemini responses."
+description = "Lucid backend: FastAPI, PostgreSQL, streamed Gemini responses."
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.14",
@@ -27,7 +27,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/chatbot"]
+packages = ["src/lucid"]
 
 [tool.uv]
 package = true

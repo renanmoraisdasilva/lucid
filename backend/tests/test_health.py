@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from chatbot.api.routes_health import database_reachable
+from lucid.api.routes_health import database_reachable
 
 
 async def _database_available() -> bool:

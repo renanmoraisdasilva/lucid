@@ -9,10 +9,10 @@ from typing import Any
 from sqlalchemy import func, select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chatbot.application.cursor import Cursor
-from chatbot.application.titles import derive_title
-from chatbot.domain.enums import AttemptStatus, Role
-from chatbot.persistence.tables import Conversation, GenerationAttempt, Message
+from lucid.application.cursor import Cursor
+from lucid.application.titles import derive_title
+from lucid.domain.enums import AttemptStatus, Role
+from lucid.persistence.tables import Conversation, GenerationAttempt, Message
 
 
 @dataclass(frozen=True, slots=True)

@@ -3,7 +3,7 @@
 import time
 import uuid
 
-from chatbot.domain.ids import uuid7, uuid7_timestamp_ms
+from lucid.domain.ids import uuid7, uuid7_timestamp_ms
 
 
 def test_generates_version_7_uuids() -> None:

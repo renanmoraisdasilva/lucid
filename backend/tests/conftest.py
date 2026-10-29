@@ -6,7 +6,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from chatbot.main import create_app
+from lucid.main import create_app
 
 
 @pytest.fixture

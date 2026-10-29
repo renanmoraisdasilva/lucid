@@ -5,12 +5,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from chatbot.api.errors import install_error_handlers
-from chatbot.api.routes_conversations import router as conversations_router
-from chatbot.api.routes_health import router as health_router
-from chatbot.config import get_settings
-from chatbot.logging import RequestIdMiddleware, configure_logging
-from chatbot.persistence.db import dispose_engine, init_engine
+from lucid.api.errors import install_error_handlers
+from lucid.api.routes_conversations import router as conversations_router
+from lucid.api.routes_health import router as health_router
+from lucid.config import get_settings
+from lucid.logging import RequestIdMiddleware, configure_logging
+from lucid.persistence.db import dispose_engine, init_engine
 
 
 @asynccontextmanager
@@ -30,7 +30,7 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level)
 
     app = FastAPI(
-        title="Chatbot MVP API",
+        title="Lucid API",
         version="0.1.0",
         lifespan=lifespan,
     )

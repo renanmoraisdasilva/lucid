@@ -6,14 +6,14 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chatbot.application.cursor import Cursor, decode_cursor, encode_cursor
-from chatbot.domain.enums import AttemptStatus, Role
-from chatbot.persistence.repositories import (
+from lucid.application.cursor import Cursor, decode_cursor, encode_cursor
+from lucid.domain.enums import AttemptStatus, Role
+from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
     MessageRepository,
 )
-from chatbot.persistence.tables import Conversation, GenerationAttempt, Message
+from lucid.persistence.tables import Conversation, GenerationAttempt, Message
 
 # Failures the user cannot fix by retrying. Anything else terminal is retryable.
 NON_RETRYABLE_ERROR_CODES = frozenset(

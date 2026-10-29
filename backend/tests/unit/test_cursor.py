@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from chatbot.application.cursor import Cursor, CursorError, decode_cursor, encode_cursor
+from lucid.application.cursor import Cursor, CursorError, decode_cursor, encode_cursor
 
 
 def _cursor() -> Cursor:

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from chatbot.domain.enums import AttemptStatus, Role
+from lucid.domain.enums import AttemptStatus, Role
 
 
 class UsageOut(BaseModel):

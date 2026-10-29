@@ -1,6 +1,6 @@
 """Conversation title derivation."""
 
-from chatbot.application.titles import FALLBACK_TITLE, MAX_TITLE_CODE_POINTS, derive_title
+from lucid.application.titles import FALLBACK_TITLE, MAX_TITLE_CODE_POINTS, derive_title
 
 
 def test_empty_message_falls_back() -> None:

@@ -22,8 +22,8 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
-from chatbot.main import create_app
-from chatbot.persistence.db import get_session
+from lucid.main import create_app
+from lucid.persistence.db import get_session
 from tests.integration.support import alembic_config, database_url
 
 

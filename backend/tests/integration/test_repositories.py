@@ -6,15 +6,15 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chatbot.application.conversations import list_conversations, read_conversation
-from chatbot.application.cursor import Cursor
-from chatbot.domain.enums import AttemptStatus, Role
-from chatbot.persistence.repositories import (
+from lucid.application.conversations import list_conversations, read_conversation
+from lucid.application.cursor import Cursor
+from lucid.domain.enums import AttemptStatus, Role
+from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
     MessageRepository,
 )
-from chatbot.persistence.tables import Conversation, Message
+from lucid.persistence.tables import Conversation, Message
 
 
 async def _create_conversations(session: AsyncSession, count: int) -> list[Conversation]:

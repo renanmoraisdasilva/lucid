@@ -45,7 +45,7 @@ export default function App() {
 
   return (
     <main className="flex min-h-full flex-col items-center justify-center gap-4 bg-slate-50 p-8">
-      <h1 className="text-2xl font-semibold text-slate-900">Chatbot MVP</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">Lucid</h1>
       <p className="max-w-md text-center text-sm text-slate-600">
         Project foundation. Chat, streaming, and persistence arrive in later milestones.
       </p>

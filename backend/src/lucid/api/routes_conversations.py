@@ -4,9 +4,9 @@ import uuid
 
 from fastapi import APIRouter, Query, Response, status
 
-from chatbot.api.deps import SessionDep
-from chatbot.api.errors import ApiError
-from chatbot.api.schemas import (
+from lucid.api.deps import SessionDep
+from lucid.api.errors import ApiError
+from lucid.api.schemas import (
     AttemptSummary,
     ConversationDetail,
     ConversationListResponse,
@@ -14,15 +14,15 @@ from chatbot.api.schemas import (
     MessageOut,
     UsageOut,
 )
-from chatbot.application.conversations import (
+from lucid.application.conversations import (
     ConversationView,
     delete_conversation,
     list_conversations,
     read_conversation,
 )
-from chatbot.application.cursor import CursorError
-from chatbot.domain.enums import AttemptStatus, Role
-from chatbot.persistence.tables import GenerationAttempt
+from lucid.application.cursor import CursorError
+from lucid.domain.enums import AttemptStatus, Role
+from lucid.persistence.tables import GenerationAttempt
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 

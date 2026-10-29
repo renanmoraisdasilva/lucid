@@ -1,4 +1,4 @@
-# Chatbot MVP
+# Lucid
 
 A single-user, ChatGPT-style chatbot built as a learning project: FastAPI +
 PostgreSQL backend, React + TypeScript frontend, streamed responses from Gemini.
@@ -29,9 +29,10 @@ conversations. Chat generation, provider integration, and streaming arrive next.
 
 | Document | Purpose |
 |---|---|
-| [`docs/specs/001-chatbot-mvp-specification.md`](docs/specs/001-chatbot-mvp-specification.md) | What the system must do: scope, non-goals, UX, data model, acceptance criteria |
+| [`docs/specs/001-lucid-specification.md`](docs/specs/001-lucid-specification.md) | What the system must do: scope, non-goals, UX, data model, acceptance criteria |
 | [`docs/plans/implementation-plan.md`](docs/plans/implementation-plan.md) | How it gets built: architecture, DDL, API and SSE contracts, milestones, tests, risks |
 | [`docs/decisions/`](docs/decisions/) | ADRs for the consequential choices (provider, data model, streaming, ids, failures, frontend) |
+| [`docs/screen-mockups/`](docs/screen-mockups/) | Static HTML previews of every UI state, plus the shared design tokens and shell |
 
 Read the specification first, then the plan. The ADRs explain the decisions that
 the spec leaves as outcomes rather than reasoning.
@@ -109,7 +110,7 @@ docker compose up -d db
 cd backend
 uv sync
 uv run alembic upgrade head
-uv run uvicorn chatbot.main:app --reload
+uv run uvicorn lucid.main:app --reload
 
 # 4. Frontend (terminal 2)
 cd frontend
@@ -156,7 +157,7 @@ Point them elsewhere with `TEST_DATABASE_URL`.
 ## Layout
 
 ```text
-backend/src/chatbot/
+backend/src/lucid/
   api/           HTTP routes, request/response schemas
   application/   orchestration, context budgeting, attempt lifecycle
   domain/        provider protocol, events, error taxonomy
@@ -166,6 +167,18 @@ backend/migrations/  Alembic revisions
 frontend/src/    React application
 docs/            specs, plan, ADRs
 ```
+
+## Repository and publishing
+
+The repository is named `lucid`. Nothing is published yet, so CI has never run.
+To create the GitHub remote:
+
+```powershell
+gh repo create lucid --private --source . --remote origin --push
+```
+
+Flip it to public when the MVP is demonstrable and the README, mockups, and
+architecture notes are in place.
 
 ## Known limitations (by design, for now)
 

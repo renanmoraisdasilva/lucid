@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str = Field(
-        default="postgresql+asyncpg://chatbot:chatbot@localhost:5432/chatbot",
+        default="postgresql+asyncpg://lucid:lucid@localhost:5432/lucid",
         description="SQLAlchemy async database URL.",
     )
     log_level: str = Field(default="INFO", description="Root log level.")

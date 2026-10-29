@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucid — Delete conversation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script src="theme.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background-color: #171512; color: #f3eee5; font-family: 'Geist', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2e2922; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3e372e; }
+</style>
+</head>
+<body class="bg-surface-bg text-text-primary antialiased selection:bg-amber-accent/25 selection:text-white h-screen flex flex-col overflow-hidden">
+<div class="w-full flex-1 flex h-screen overflow-hidden relative">
+  <div id="sidebar-mount" class="contents"></div>
+
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-surface-bg relative">
+    <div id="header-mount"></div>
+
+    <!-- Dimmed conversation behind the dialog -->
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 pb-44" id="chat-stream">
+      <div class="w-full max-w-3xl mx-auto space-y-7 opacity-30 blur-[1px] select-none pointer-events-none" aria-hidden="true">
+        <div class="flex flex-col items-end w-full">
+          <span class="text-[11px] text-text-muted mb-1.5">10:42 AM</span>
+          <div class="bg-surface-elevated border border-surface-border-subtle rounded-2xl rounded-tr-xs p-4 sm:p-5 max-w-[90%] text-[14px] leading-relaxed">
+            Could you provide a clean Go implementation for an in-memory event bus with worker concurrency?
+          </div>
+        </div>
+
+        <div class="flex flex-col w-full space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-full bg-surface-elevated border border-amber-border flex items-center justify-center shrink-0">
+              <div class="w-3.5 h-3.5 rounded-full border border-amber-accent relative flex items-center justify-center">
+                <span class="w-1 h-1 rounded-full bg-amber-accent"></span>
+              </div>
+            </div>
+            <span class="font-medium text-[15px]">Lucid</span>
+            <span class="font-mono text-[11px] text-text-muted">812 in &middot; 240 out</span>
+          </div>
+          <p class="text-[14px] leading-relaxed text-text-secondary">
+            Here's a thread-safe implementation using partitioned worker queues and a shutdown channel to prevent races during teardown.
+          </p>
+          <div class="rounded-xl overflow-hidden border border-surface-border bg-surface-code">
+            <div class="h-9 px-4 flex items-center justify-between border-b border-surface-border bg-surface-elevated/70">
+              <span class="font-mono text-[12px] text-text-muted">go</span>
+              <span class="text-[12px] text-text-muted">Copy</span>
+            </div>
+            <pre class="p-4 text-[13px] font-mono leading-relaxed text-text-secondary"><code>type EventBus struct {
+    mu          sync.RWMutex
+    subscribers map[string][]chan Event
+    shutdown    chan struct{}
+}</code></pre>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div id="composer-mount" class="hidden"></div>
+  </div>
+</div>
+
+<!-- Delete confirmation: only destructive action in the MVP -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md" id="delete-dialog">
+  <div role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-body"
+       class="w-full max-w-[440px] rounded-xl bg-surface-elevated border border-surface-border-subtle shadow-2xl p-6">
+    <div class="flex items-start gap-3">
+      <div class="w-9 h-9 rounded-full bg-danger-dim border border-danger-border flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-danger text-[18px]">delete</span>
+      </div>
+      <div class="min-w-0">
+        <h2 id="delete-dialog-title" class="text-[15px] font-semibold text-text-primary">Delete conversation?</h2>
+        <p id="delete-dialog-body" class="mt-1.5 text-[13px] leading-relaxed text-text-secondary">
+          &ldquo;Event-Driven Architecture &amp; Bus&rdquo; and its messages will be permanently deleted. This cannot be undone.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-6 flex items-center justify-end gap-2">
+      <button type="button" onclick="closeDialog()"
+        class="px-3.5 py-2 rounded-lg border border-surface-border-subtle text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors">
+        Cancel
+      </button>
+      <button type="button" onclick="closeDialog()"
+        class="px-3.5 py-2 rounded-lg bg-danger text-[#1a0f0d] text-[13px] font-semibold hover:brightness-110 transition-all">
+        Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="shell.js"></script>
+<script>
+  LucidShell.mount({
+    activeId: "evt",
+    title: "Event-Driven Architecture & Bus",
+  });
+
+  function closeDialog() {
+    var dialog = document.getElementById("delete-dialog");
+    var stream = document.getElementById("chat-stream");
+    if (dialog) {
+      dialog.remove();
+    }
+    if (stream) {
+      var dimmed = stream.querySelector("[aria-hidden='true']");
+      if (dimmed) {
+        dimmed.classList.remove("opacity-30", "blur-[1px]", "select-none", "pointer-events-none");
+        dimmed.removeAttribute("aria-hidden");
+      }
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lucid — Generation failed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script src="theme.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background-color: #171512; color: #f3eee5; font-family: 'Geist', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2e2922; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3e372e; }
+</style>
+</head>
+<body class="bg-surface-bg text-text-primary antialiased selection:bg-amber-accent/25 selection:text-white h-screen flex flex-col overflow-hidden">
+<div class="w-full flex-1 flex h-screen overflow-hidden relative">
+  <div id="sidebar-mount" class="contents"></div>
+
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-surface-bg relative">
+    <div id="header-mount"></div>
+
+    <main class="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 pb-44">
+      <div class="w-full max-w-3xl mx-auto space-y-7">
+
+        <div class="flex flex-col items-end w-full">
+          <span class="text-[11px] text-text-muted mb-1.5">10:42 AM</span>
+          <div class="bg-surface-elevated border border-surface-border-subtle rounded-2xl rounded-tr-xs p-4 sm:p-5 max-w-[94%] sm:max-w-[85%] text-[14px] sm:text-[15px] leading-relaxed shadow-sm">
+            Could you provide a clean Go implementation for an in-memory event bus with worker concurrency?
+          </div>
+        </div>
+
+        <!-- Failed before any token: the user message stays, no assistant message exists -->
+        <div class="w-full max-w-3xl">
+          <div class="rounded-xl bg-danger-dim border border-danger-border p-4 sm:p-5">
+            <div class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-danger text-[18px] shrink-0 mt-0.5">error</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] sm:text-[14px] font-medium text-text-primary">The model is rate limited right now.</p>
+                <p class="mt-1 text-[13px] leading-relaxed text-text-secondary">
+                  Your message is saved. Retrying reuses it and starts a new attempt.
+                </p>
+                <div class="mt-3.5 flex items-center gap-2">
+                  <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-elevated border border-surface-border-subtle text-[12px] font-medium text-text-primary hover:bg-surface-hover transition-colors">
+                    <span class="material-symbols-outlined text-[16px]">refresh</span>
+                    Retry
+                  </button>
+                  <span class="font-mono text-[11px] text-text-muted">attempt 3 of 3</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <div class="fixed bottom-0 left-0 lg:left-[260px] right-0 z-30 p-3 sm:p-5 pointer-events-none bg-gradient-to-t from-surface-bg via-surface-bg/95 to-transparent">
+      <div id="composer-mount" class="max-w-3xl mx-auto pointer-events-auto"></div>
+    </div>
+  </div>
+</div>
+
+<script src="shell.js"></script>
+<script>
+  LucidShell.mount({
+    activeId: "evt",
+    title: "Event-Driven Architecture & Bus",
+  });
+</script>
+</body>
+</html>

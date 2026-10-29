@@ -8,13 +8,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chatbot.domain.enums import AttemptStatus, Role
-from chatbot.persistence.repositories import (
+from lucid.domain.enums import AttemptStatus, Role
+from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
     MessageRepository,
 )
-from chatbot.persistence.tables import Conversation, GenerationAttempt, Message
+from lucid.persistence.tables import Conversation, GenerationAttempt, Message
 
 
 async def _seed(session: AsyncSession) -> tuple[Conversation, Message, GenerationAttempt]:

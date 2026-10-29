@@ -6,7 +6,7 @@ from pathlib import Path
 from alembic.config import Config
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_DATABASE_URL = "postgresql+asyncpg://chatbot:chatbot@localhost:5432/chatbot"
+DEFAULT_DATABASE_URL = "postgresql+asyncpg://lucid:lucid@localhost:5432/lucid"
 
 
 def database_url() -> str:

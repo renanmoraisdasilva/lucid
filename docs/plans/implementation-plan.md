@@ -1,9 +1,9 @@
-# Chatbot MVP — Implementation Plan
+# Lucid — Implementation Plan
 
 **Status:** Ready for implementation, pending approval
 **Version:** 1.0
 **Date:** 2026-10-28
-**Implements:** [`../specs/001-chatbot-mvp-specification.md`](../specs/001-chatbot-mvp-specification.md) v0.2
+**Implements:** [`../specs/001-lucid-specification.md`](../specs/001-lucid-specification.md) v0.3
 **Decisions:** [ADR-001](../decisions/ADR-001-gemini-provider-and-model.md) …
 [ADR-006](../decisions/ADR-006-frontend-and-local-dev.md)
 
@@ -18,7 +18,7 @@
 
 ### Repository
 
-`chatbot_mvp` exists locally as a git repository on `main`:
+`lucid` exists locally as a git repository on `main`:
 
 | Commit | Content |
 |---|---|
@@ -146,7 +146,7 @@ Refresh/disconnect:
 ## 3. Repository layout
 
 ```text
-chatbot_mvp/
+lucid/
 ├── README.md
 ├── .env.example
 ├── .gitignore
@@ -159,7 +159,7 @@ chatbot_mvp/
 │   ├── Dockerfile
 │   ├── migrations/versions/
 │   ├── prompts/system.md
-│   ├── src/chatbot/
+│   ├── src/lucid/
 │   │   ├── main.py                 # app factory, lifespan (reconcile + client), routers
 │   │   ├── config.py               # pydantic-settings
 │   │   ├── logging.py              # structured logging, correlation ids
@@ -204,6 +204,12 @@ chatbot_mvp/
         ├── hooks/{useConversations.ts,useConversation.ts,useChatStream.ts}
         ├── components/…
         └── pages/ChatPage.tsx
+
+docs/
+  specs/            product and technical specification
+  plans/            this plan
+  decisions/        ADRs
+  screen-mockups/   static HTML previews + shared tokens/shell
 ```
 
 ---
@@ -470,7 +476,7 @@ forwarded.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+asyncpg://chatbot:chatbot@localhost:5432/chatbot` | DB connection |
+| `DATABASE_URL` | `postgresql+asyncpg://lucid:lucid@localhost:5432/lucid` | DB connection |
 | `GEMINI_API_KEY` | — (required) | Provider credential, backend only |
 | `PROVIDER` | `gemini` | `gemini` or `fake`; tests force `fake` |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Model id — the only place a model is named |
@@ -576,7 +582,7 @@ Goal: a running skeleton with quality gates, no product features.
 when up; `alembic upgrade head` succeeds on a clean database; a single frontend
 smoke test renders the shell.
 
-**Demo:** `docker compose up -d db`, `uv run uvicorn chatbot.main:app --reload`,
+**Demo:** `docker compose up -d db`, `uv run uvicorn lucid.main:app --reload`,
 `npm run dev`, health indicator green in the browser.
 
 **Exit:** CI green on the first push (once the remote exists), all four quality
@@ -678,11 +684,12 @@ when absent; no attempt can stay `in_progress` after restart.
 
 | # | Task |
 |---|---|
-| 6.1 | Sidebar: `useInfiniteQuery`, New chat, ordering, active conversation highlight, delete with confirmation |
-| 6.2 | Markdown pipeline: `react-markdown` + `remark-gfm` + `rehype-sanitize` + `rehype-highlight`; `CodeBlock` with copy button and language label |
+| 6.0 | Implement the visual system from `docs/screen-mockups/`: tokens, shell (sidebar/header/composer), and the generating, interrupted, failed, empty, and delete states |
+| 6.1 | Sidebar: `useInfiniteQuery`, New chat, `updated_at` ordering with Today / Yesterday / Previous 7 days groups, active highlight, next-page skeleton, end-of-list marker, delete with confirmation |
+| 6.2 | Markdown pipeline: `react-markdown` + `remark-gfm` + `rehype-sanitize` + `rehype-highlight`; `CodeBlock` with the language label and copy button, no line-number gutter |
 | 6.3 | Sanitization tests: `<script>`, `javascript:` links, `onerror` attributes, raw HTML, `<iframe>` all neutralized |
-| 6.4 | Interrupted/failed markers, Retry affordance, error notices, usage badge placement |
-| 6.5 | Composer: disabled while generating, Enter to send / Shift+Enter newline, char counter near the 16k limit, autoscroll that respects manual scroll-up |
+| 6.4 | Interrupted/failed markers, Retry affordance, error notices, metadata row showing `N in · M out` or `usage unavailable` |
+| 6.5 | Composer: disabled while generating, Enter to send / Shift+Enter newline, Ctrl/⌘+K for a new chat, char counter near the 16k limit, autoscroll that respects manual scroll-up |
 | 6.6 | Title ellipsis, empty states, loading skeletons, error boundary |
 | 6.7 | Full-stack Compose profile (backend + frontend Dockerfiles, healthchecks, `depends_on`) |
 | 6.8 | README final pass: setup, architecture summary, trade-offs, known limitations, manual acceptance results |

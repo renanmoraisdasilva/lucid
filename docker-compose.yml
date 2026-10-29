@@ -1,17 +1,17 @@
 services:
   db:
     image: postgres:17
-    container_name: chatbot-mvp-db
+    container_name: lucid-db
     environment:
-      POSTGRES_USER: chatbot
-      POSTGRES_PASSWORD: chatbot
-      POSTGRES_DB: chatbot
+      POSTGRES_USER: lucid
+      POSTGRES_PASSWORD: lucid
+      POSTGRES_DB: lucid
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot"]
+      test: ["CMD-SHELL", "pg_isready -U lucid -d lucid"]
       interval: 5s
       timeout: 3s
       retries: 10

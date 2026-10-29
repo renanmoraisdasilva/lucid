@@ -15,7 +15,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "Chatbot MVP" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lucid" })).toBeInTheDocument();
   });
 
   it("shows the backend as ok when the health endpoint answers", async () => {

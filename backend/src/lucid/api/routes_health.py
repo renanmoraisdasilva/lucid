@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
-from chatbot.persistence.db import check_database
+from lucid.persistence.db import check_database
 
 router = APIRouter(tags=["health"])
 

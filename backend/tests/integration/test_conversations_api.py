@@ -5,13 +5,13 @@ import uuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from chatbot.domain.enums import AttemptStatus, Role
-from chatbot.persistence.repositories import (
+from lucid.domain.enums import AttemptStatus, Role
+from lucid.persistence.repositories import (
     AttemptRepository,
     ConversationRepository,
     MessageRepository,
 )
-from chatbot.persistence.tables import Conversation
+from lucid.persistence.tables import Conversation
 
 
 async def _seed_conversations(session: AsyncSession, count: int) -> list[Conversation]:

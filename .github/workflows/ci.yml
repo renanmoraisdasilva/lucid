@@ -20,18 +20,18 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: chatbot
-          POSTGRES_PASSWORD: chatbot
-          POSTGRES_DB: chatbot
+          POSTGRES_USER: lucid
+          POSTGRES_PASSWORD: lucid
+          POSTGRES_DB: lucid
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U chatbot -d chatbot"
+          --health-cmd "pg_isready -U lucid -d lucid"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql+asyncpg://chatbot:chatbot@localhost:5432/chatbot
+      DATABASE_URL: postgresql+asyncpg://lucid:lucid@localhost:5432/lucid
     steps:
       - uses: actions/checkout@v4
 

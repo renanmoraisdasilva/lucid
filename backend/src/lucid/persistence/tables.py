@@ -26,9 +26,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from chatbot.domain.enums import AttemptStatus
-from chatbot.domain.ids import uuid7
-from chatbot.persistence.db import Base
+from lucid.domain.enums import AttemptStatus
+from lucid.domain.ids import uuid7
+from lucid.persistence.db import Base
 
 _ACTIVE_STATUS_PREDICATE = text("status = 'in_progress'")
 

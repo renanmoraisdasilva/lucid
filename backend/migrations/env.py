@@ -8,8 +8,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from chatbot.config import get_settings
-from chatbot.persistence.db import Base
+from lucid.config import get_settings
+from lucid.persistence.db import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))

@@ -1,8 +1,8 @@
-# Chatbot MVP — Product & Technical Specification
+# Lucid — Product & Technical Specification
 
 **Status:** Approved for implementation  
-**Version:** 0.2  
-**Last updated:** 2026-10-28
+**Version:** 0.3  
+**Last updated:** 2026-10-29
 
 > This specification records the decisions made during the interview. Items marked
 > **Proposed** or **Open** are not yet confirmed requirements. Checkboxes are
@@ -14,6 +14,13 @@
 > [`../plans/implementation-plan.md`](../plans/implementation-plan.md), and the
 > consequential decisions are recorded as ADRs in `../decisions/`.
 > Implementation follows the plan's milestones.
+>
+> **v0.3 (2026-10-29):** The product is named **Lucid**; repository, packages, and
+> documentation follow that name. Screen mockups were reviewed against this spec,
+> non-goal UI was removed from them, and the remaining visual decisions
+> (assistant rendering, timestamps, keyboard shortcuts, sidebar grouping, token
+> format, code-block chrome) are recorded in §15 and in
+> [`../screen-mockups/README.md`](../screen-mockups/README.md).
 
 ## 1. Purpose
 
@@ -80,11 +87,20 @@ These features may be considered in later projects or iterations, but should not
 
 ### 5.1 Main chat interface
 
+The visual reference is [`../screen-mockups/`](../screen-mockups/): `home.html`,
+`new-chat.html`, `generating.html`, `interrupted.html`, `failed.html`,
+`delete-chat.html`, `sidebar-states.html`.
+
 - [ ] ChatGPT-like layout with a sidebar and main conversation area.
 - [ ] Sidebar includes a **New chat** action.
 - [ ] Sidebar lists saved conversations, newest/recently updated first.
-- [ ] Main area displays user and assistant message bubbles.
+- [ ] User turns render as a right-aligned bubble with a timestamp. Assistant turns
+  render as a full-width Markdown document with an avatar and a metadata row, not in
+  a bubble.
+- [ ] Do not display author names: there is a single user and no author field.
 - [ ] Message composer supports sending a message.
+- [ ] **Enter** sends; **Shift+Enter** inserts a newline; **Ctrl+K** (**Cmd+K** on
+  macOS) starts a new chat.
 - [ ] While a response is generating, disable the composer and prevent another message from being submitted.
 - [ ] Provide a **Stop** action while a response is generating.
 - [ ] Show a clear loading/generating state.
@@ -96,7 +112,7 @@ These features may be considered in later projects or iterations, but should not
 - [ ] Render assistant responses as Markdown.
 - [ ] Support headings, paragraphs, lists, links, tables, inline code, and fenced code blocks.
 - [ ] Provide syntax highlighting for code blocks.
-- [ ] Provide a copy button for each code block.
+- [ ] Each code block shows a language label and a copy button. No line-number gutter.
 - [ ] Sanitize rendered Markdown/HTML and restrict unsafe links or embedded content.
 - [ ] Do not add full-conversation copy/export in the MVP.
 
@@ -110,6 +126,9 @@ These features may be considered in later projects or iterations, but should not
 - [ ] Allow permanent deletion of a conversation and its associated messages/attempts.
 - [ ] Do not implement archive functionality.
 - [ ] Show conversations newest/recently updated first.
+- [ ] Sidebar rows are grouped under **Today**, **Yesterday**, and **Previous 7 days**
+  labels derived from `updated_at`, so grouping never contradicts the ordering. A
+  group label may repeat across a paginated page boundary.
 - [ ] Use pagination to load the conversation list, fetching older entries as needed.
 - [ ] Do not implement conversation search.
 - [ ] Generate the initial conversation title deterministically from the first user message; do not make an additional Gemini call for title generation.
@@ -172,7 +191,7 @@ assistant response, then include the most recent messages that fit.
 
 ### 5.7 Token usage
 
-- [ ] Display input and output token counts for each assistant response when Gemini provides usage metadata.
+- [ ] Display input and output token counts for each assistant response when Gemini provides usage metadata, formatted as `N in · M out` in the response metadata row.
 - [ ] If usage metadata is unavailable, display an unavailable/unknown state rather than presenting an invented exact count.
 - [ ] Store usage metadata with the corresponding generation attempt when available.
 - [ ] Do not add conversation-level usage dashboards or cost analytics in the MVP.
@@ -593,6 +612,19 @@ For small reversible implementation details already covered by an agreed require
 | 19 | Error classification with partial output | Post-token provider failure → `failed` with partial text kept visible; `interrupted` is reserved for stop/refresh/disconnect |
 | 20 | Identity scheme | UUIDv7 primary keys for conversations, messages, and attempts |
 
+### Resolved in v0.3 (2026-10-29)
+
+| # | Decision | Outcome |
+|---|---|---|
+| 21 | Product name | **Lucid** — repository, Python package, API title, and docs all use it |
+| 22 | Assistant rendering | Full-width editorial Markdown document; user turns keep bubbles (amends §5.1) |
+| 23 | Message attribution | Timestamp on user turns only; no author names (single user, no author column) |
+| 24 | Keyboard | Enter sends, Shift+Enter inserts a newline, Ctrl/⌘+K starts a new chat |
+| 25 | Assistant metadata row | `N in · M out` tokens, or `usage unavailable`; no model badge and no latency |
+| 26 | Sidebar grouping | Today / Yesterday / Previous 7 days, derived from `updated_at` |
+| 27 | Code block chrome | Language label and copy button; no line-number gutter |
+| 28 | Non-goal UI removed from mockups | Search, share/export, attachments, web browsing, model tuning, model selector, settings and account menu |
+
 ### Deferred to later iterations (explicitly out of MVP scope)
 
 - **Model registry / model picker.** See the model-churn risk in
@@ -663,3 +695,10 @@ For small reversible implementation details already covered by an agreed require
 | Test stacks | pytest + pytest-asyncio; Vitest + React Testing Library |
 | CI | GitHub Actions from Milestone 1 |
 | Local dev layout | Postgres in Compose; backend and frontend on the host |
+| Product name | Lucid |
+| Assistant rendering | Editorial full-width Markdown; user turns stay bubbles |
+| Message attribution | Timestamp only, no author names |
+| Keyboard | Enter sends, Shift+Enter newline, Ctrl/⌘+K new chat |
+| Assistant metadata | Input/output token counts, or `usage unavailable`; no model badge, no latency |
+| Sidebar grouping | Today / Yesterday / Previous 7 days from `updated_at` |
+| Code blocks | Language label + copy, no line numbers |
