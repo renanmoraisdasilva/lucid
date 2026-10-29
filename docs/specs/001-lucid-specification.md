@@ -1,7 +1,7 @@
 # Lucid — Product & Technical Specification
 
 **Status:** Approved for implementation  
-**Version:** 0.3  
+**Version:** 0.4  
 **Last updated:** 2026-10-29
 
 > This specification records the decisions made during the interview. Items marked
@@ -21,6 +21,13 @@
 > (assistant rendering, timestamps, keyboard shortcuts, sidebar grouping, token
 > format, code-block chrome) are recorded in §15 and in
 > [`../screen-mockups/README.md`](../screen-mockups/README.md).
+>
+> **v0.4 (2026-10-29):** The default model changed from `gemini-3.5-flash-lite` to
+> `gemini-3.6-flash`. The free tier queued the lite model for 30–66 seconds before
+> accepting each request; interleaved measurements in the same window gave
+> 2.2s/14.6s for 3.6-flash against 38.5s/42.1s/32.6s for lite. See the ADR-001
+> amendment and `docs/architecture/gemini-adapter-notes.md`. Everything else in
+> this specification is unchanged.
 
 ## 1. Purpose
 
@@ -249,7 +256,7 @@ Retry policy details (maximum attempts, retryable status codes, and backoff limi
 | Database | PostgreSQL (Docker Compose for local development) |
 | ORM | SQLAlchemy 2.x async + asyncpg (confirmed) |
 | Migrations | Alembic (confirmed) |
-| LLM | Gemini `gemini-3.5-flash-lite` (config-driven, see ADR-001) |
+| LLM | Gemini `gemini-3.6-flash` (config-driven, see ADR-001) |
 | Provider API | Gemini **Interactions API** (GA since June 2026) |
 | Provider SDK | `google-genai` >= 2.3.0 |
 | Provider state | Stateless from the provider's perspective (`store=false`) |
@@ -592,7 +599,7 @@ For small reversible implementation details already covered by an agreed require
 | # | Decision | Outcome |
 |---|---|---|
 | 1 | Context-window policy | Token budget: 20,000 input tokens, 4,096 reserved for output, 512 margin, 60-message hard cap, backwards selection |
-| 2 | Gemini model and API support | `gemini-3.5-flash-lite` via the Interactions API (`google-genai` >= 2.3.0); streaming, usage metadata, and mid-stream error events verified in current docs |
+| 2 | Gemini model and API support | `gemini-3.6-flash` via the Interactions API (`google-genai` >= 2.3.0); streaming, usage metadata, and mid-stream error events verified in current docs |
 | 3 | Persistence implementation | SQLAlchemy 2.x async + asyncpg + Alembic |
 | 4 | SSE event names and payloads | `meta`, `delta`, `usage`, `done`, `error`; exactly one terminal event per stream |
 | 5 | Cancellation mechanism and active-generation tracking | In-process `attempt_id → asyncio.Task` registry; stop endpoint cancels the task; disconnect detection cancels too; DB partial unique index backs the invariant |
@@ -677,7 +684,7 @@ For small reversible implementation details already covered by an agreed require
 | Ordering key | `(updated_at DESC, id DESC)`; `updated_at` bumps on message insert |
 | Provider API | Gemini Interactions API (`google-genai` >= 2.3.0), not `generateContent` |
 | Provider state | Stateless requests (`store=false`); app owns conversation history |
-| Model | `gemini-3.5-flash-lite`; model churn is a tracked risk, model picker deferred |
+| Model | `gemini-3.6-flash`; model churn is a tracked risk, model picker deferred |
 | Persistence stack | SQLAlchemy 2.x async + asyncpg + Alembic |
 | Assistant content | Canonical on `messages.content`; attempts hold lifecycle/usage metadata only |
 | Active generation invariant | One `in_progress` attempt per conversation, enforced by partial unique index |

@@ -70,6 +70,21 @@ Two facts from the current documentation constrain the design:
   (May 2026), so the SDK version is pinned and the adapter is covered by
   contract tests against recorded fixtures.
 
+## Amendment (2026-10-29): model changed to `gemini-3.6-flash`
+
+**Context.** `gemini-3.5-flash-lite` was the original choice (decision 3 above) for
+cost. Measurement showed the free tier queuing it for 30–66 seconds per call —
+the delay occurred before `interaction.created`, so it was provider scheduling,
+not generation. Interleaved calls in the same window: lite 38.5s / 42.1s / 32.6s
+to first token, `gemini-3.6-flash` 2.2s / 14.6s.
+
+**Decision.** Default `GEMINI_MODEL` to `gemini-3.6-flash`. It is still free-tier,
+faster in every paired sample, and the model id remains configuration only.
+
+**Consequences.** Slightly higher token cost on a paid tier; the churn risk in
+R1 is unchanged and the model picker remains the post-MVP follow-up. The original
+reasoning above is kept as history, not rewritten.
+
 ## Follow-ups
 
 - **Model churn is a tracked risk.** See the risk section of

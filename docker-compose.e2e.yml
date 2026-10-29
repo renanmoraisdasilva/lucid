@@ -1,0 +1,6 @@
+# Deterministic browser E2E: scripted provider, no network or API key.
+services:
+  backend:
+    environment:
+      PROVIDER: fake
+      GEMINI_API_KEY: ""

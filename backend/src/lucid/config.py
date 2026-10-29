@@ -36,14 +36,14 @@ class Settings(BaseSettings):
         description="Which ChatProvider implementation to use.",
     )
     gemini_api_key: SecretStr | None = Field(default=None, description="Provider credential.")
-    gemini_model: str = Field(default="gemini-3.5-flash-lite", description="Model identifier.")
+    gemini_model: str = Field(default="gemini-3.6-flash", description="Model identifier.")
     gemini_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     gemini_max_output_tokens: int = Field(default=2048, ge=1, le=8192)
     gemini_thinking_level: Literal["minimal", "low", "medium", "high"] | None = Field(
         default="low",
         description=(
             "Provider reasoning effort. 'low' cuts first-token latency from ~25s to "
-            "under a second on gemini-3.5-flash-lite. Set to 'high' for harder questions."
+            "under a second on gemini-3.6-flash. Set to 'high' for harder questions."
         ),
     )
 

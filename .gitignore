@@ -22,3 +22,8 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/

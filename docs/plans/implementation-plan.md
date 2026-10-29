@@ -349,7 +349,7 @@ Base path `/api`. JSON everywhere except the SSE streams.
   "messages": [
     { "id": "…", "role": "user", "seq": 1, "content": "Explain SSE vs WebSockets",
       "created_at": "…",
-      "attempt": { "id": "…", "status": "completed", "model": "gemini-3.5-flash-lite",
+      "attempt": { "id": "…", "status": "completed", "model": "gemini-3.6-flash",
                    "retryable": false, "error_code": null,
                    "usage": { "input_tokens": 812, "output_tokens": 240,
                               "thought_tokens": 0, "total_tokens": 1052 } } },
@@ -416,7 +416,7 @@ silence to keep intermediaries from idling the connection.
 event: meta
 data: {"conversation_id":"0192f3c1-…","conversation_title":"Explain SSE vs WebSockets",
        "user_message_id":"0192f3c2-…","attempt_id":"0192f3c3-…",
-       "model":"gemini-3.5-flash-lite","is_new_conversation":true}
+       "model":"gemini-3.6-flash","is_new_conversation":true}
 ```
 The client uses this to switch from `new` to `/c/{id}` without a second request.
 
@@ -479,7 +479,7 @@ forwarded.
 | `DATABASE_URL` | `postgresql+asyncpg://lucid:lucid@localhost:5432/lucid` | DB connection |
 | `GEMINI_API_KEY` | — (required) | Provider credential, backend only |
 | `PROVIDER` | `gemini` | `gemini` or `fake`; tests force `fake` |
-| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Model id — the only place a model is named |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Model id — the only place a model is named |
 | `GEMINI_TIMEOUT_SECONDS` | `60` | Overall request timeout |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `2048` | Cap on generated tokens |
 | `GENERATION_MAX_RETRIES` | `2` | Automatic retries per attempt |
@@ -629,7 +629,7 @@ duplicates or gaps); cascade delete verified; no provider code exists yet.
 | 3.10 | Adapter tests over recorded fixture frames; error-translation table test |
 
 **Demo:** with `PROVIDER=fake`, `POST /api/chat` returns a persisted assistant
-message. With a real key, one manual call to `gemini-3.5-flash-lite` succeeds and
+message. With a real key, one manual call to `gemini-3.6-flash` succeeds and
 is documented (not automated).
 
 **Exit:** no SDK type crosses the provider boundary; fake provider makes the
@@ -819,7 +819,7 @@ running it.
 
 | # | Risk | Likelihood | Mitigation |
 |---|---|---|---|
-| R1 | **Model churn.** `gemini-3.5-flash-lite` may be deprecated, renamed, or removed from the free tier. Google narrowed free-tier model access materially during 2026 and per-model limits are no longer published in a table. | High over time | Model id exists only in config; every attempt records provider+model; adapter contract tests pin the event/usage shape; startup logs the configured model. **Post-MVP: model registry + picker.** |
+| R1 | **Model churn.** `gemini-3.6-flash` may be deprecated, renamed, or removed from the free tier. Google narrowed free-tier model access materially during 2026 and per-model limits are no longer published in a table. | High over time | Model id exists only in config; every attempt records provider+model; adapter contract tests pin the event/usage shape; startup logs the configured model. **Post-MVP: model registry + picker.** |
 | R2 | **Interactions API churn** (it already shipped a breaking-change round in May 2026). | Medium | Pin `google-genai` to a minor range, isolate in one module, cover with fixture-based tests, document the migration path to `generateContent` as a fallback. |
 | R3 | **No server-side cancel** → quota used after Stop. | Certain, low impact | Accepted in ADR-001; `GEMINI_MAX_OUTPUT_TOKENS` caps waste; free tier makes cost zero. |
 | R4 | **Buffered partial text lost on crash.** | Low | Accepted; startup reconciliation to `interrupted`/`process_restart`; the user can retry. |

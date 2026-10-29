@@ -76,7 +76,7 @@ No RAG, no agents, no tools, no file uploads, no cloud deployment.
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic v2 |
 | Persistence | PostgreSQL 17, SQLAlchemy 2.x async, asyncpg, Alembic |
-| Model | Gemini `gemini-3.5-flash-lite` via the Interactions API (`google-genai`) — Milestone 3 |
+| Model | Gemini `gemini-3.6-flash` via the Interactions API (`google-genai`) — Milestone 3 |
 | Streaming | Server-Sent Events over `POST`, parsed with `fetch` — Milestone 4 |
 | Frontend | React 19 + TypeScript, Vite, Tailwind CSS |
 | Quality | Ruff, Pyright (strict), pytest, ESLint, Prettier, Vitest, GitHub Actions |
@@ -211,15 +211,28 @@ Point them elsewhere with `TEST_DATABASE_URL`.
 | Unit | context selection, retry policy, titles, cursors, provider mapping | `uv run pytest tests/unit` |
 | Integration | real PostgreSQL, migrations, SSE frame sequence, stop/disconnect, retries, reconciliation | `uv run pytest tests/integration` |
 | Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, delete dialog | `npm test` |
+| Browser E2E | send → stream → reload → delete, against a real browser and stack | `npm run e2e` (see below) |
 | Live (opt-in) | real provider streaming and **first-token latency** | `$env:LUCID_LIVE_TESTS=1; uv run pytest tests/live` |
 
 The live suite exists because the fake provider is instantaneous: it cannot
 observe a provider that takes 25 seconds to produce a token. It is opt-in so the
 normal suite stays offline and free.
 
-**Known gap:** there is no browser-level end-to-end test (Playwright). The layers
-above would not catch a purely visual or focus-management regression in the
-assembled app.
+### Browser end-to-end
+
+Playwright drives the assembled UI. For a deterministic run, start the stack with
+the scripted provider:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml --profile full up -d --build
+cd frontend
+npm run e2e
+```
+
+Point it at another stack with `E2E_BASE_URL` (default `http://127.0.0.1:8080`).
+The suite covers: send a message and see the streamed reply, reload and reopen the
+conversation, and delete it through the confirmation dialog. It is deliberately
+**not wired into CI** yet — it needs a Compose stack and a browser download.
 
 ## Layout
 

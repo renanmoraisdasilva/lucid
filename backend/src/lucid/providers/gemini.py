@@ -61,7 +61,7 @@ def build_generation_config(
     """Build the provider generation config.
 
     ``thinking_level`` is set explicitly: the provider default can spend ~25s
-    before emitting the first token on gemini-3.5-flash-lite, which looks like a
+    before emitting the first token on gemini-3.6-flash, which looks like a
     hung request in the UI. It is omitted entirely when not configured.
     """
     config: dict[str, object] = {"max_output_tokens": max_output_tokens}

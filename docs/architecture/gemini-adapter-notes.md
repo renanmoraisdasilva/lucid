@@ -1,8 +1,9 @@
 # Gemini adapter notes
 
 Verified against `google-genai` **2.34.0** on **2026-10-29** with
-`gemini-3.5-flash-lite`. These are the facts the adapter depends on; re-check them
-before changing the SDK version or the model.
+`gemini-3.6-flash` (the current default) and `gemini-3.5-flash-lite` (the previous
+default). These are the facts the adapter depends on; re-check them before
+changing the SDK version or the model.
 
 ## Client and call shape
 
@@ -13,7 +14,7 @@ client = genai.Client(
 )
 
 stream = await client.aio.interactions.create(
-    model="gemini-3.5-flash-lite",
+    model="gemini-3.6-flash",
     input=[...],                    # see "Multi-turn input" below
     system_instruction="...",
     generation_config={"max_output_tokens": 2048},
@@ -124,7 +125,17 @@ request had not been accepted yet, while the same moment accepted
 slow, so raising or lowering effort cannot fix capacity waits. Our stack is not
 the bottleneck: `meta` reaches the browser in 40–200ms.
 
-`thinking_level` is still set explicitly (default `low`) because it removes
+A follow-up interleaved comparison (three rounds, same prompt, same minutes) was
+decisive:
+
+| Round | `gemini-3.5-flash-lite` first token | `gemini-3.6-flash` first token |
+|---|---|---|
+| 1 | 38.50s | no text (accepted at 5.0s) |
+| 2 | 42.07s | 2.17s |
+| 3 | 32.57s | 14.58s |
+
+The default model is therefore `gemini-3.6-flash` (see the ADR-001 amendment).
+`thinking_level` remains set explicitly (default `low`) because it removes
 reasoning latency when the model does reason, and `"none"` is rejected (`400`;
 valid values are `minimal`, `low`, `medium`, `high`). It is a secondary lever, not
 the fix for free-tier scheduling delay.
