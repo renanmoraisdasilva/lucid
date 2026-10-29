@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
-import type { AttemptSummary, Message } from "../api/types";
-import type { ChatError } from "../hooks/useChat";
-import { formatWait } from "../lib/duration";
-import { Markdown } from "./Markdown";
+import type { Message } from "../api/types";
+import type { ChatError } from "../lib/chat-types";
+import { AssistantTurn } from "./chat/AssistantTurn";
+import { ErrorNotice } from "./chat/ErrorNotice";
+import { StreamingTurn } from "./chat/StreamingTurn";
+import { UserTurn } from "./chat/UserTurn";
 
 interface MessageListProps {
   messages: Message[];
@@ -11,104 +13,6 @@ interface MessageListProps {
   streaming: boolean;
   error: ChatError | null;
   onRetry: (messageId: string) => void;
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function UsageLine({ message }: { message: Message }) {
-  const usage = message.attempt?.usage ?? null;
-  if (usage === null || (usage.input_tokens === null && usage.output_tokens === null)) {
-    return <span className="font-mono text-[11px] text-text-muted">usage unavailable</span>;
-  }
-  return (
-    <span className="font-mono text-[11px] text-text-muted">
-      {usage.input_tokens ?? "?"} in &middot; {usage.output_tokens ?? "?"} out
-    </span>
-  );
-}
-
-/** Explain why a turn has no answer, without leaking provider internals. */
-function describeFailure(attempt: AttemptSummary): string {
-  switch (attempt.error_code) {
-    case "interrupted":
-      return "The response was interrupted before any text arrived.";
-    case "stopped_by_user":
-      return "You stopped this response.";
-    case "process_restart":
-    case "server_shutdown":
-      return "The server restarted before the answer finished.";
-    case "empty_response":
-      return "The model returned no text.";
-    case "provider_timeout":
-      return "The model did not respond in time.";
-    case "provider_rate_limited":
-      return "The model was rate limited.";
-    case "provider_unavailable":
-      return "The model was temporarily unavailable.";
-    case "provider_invalid_request":
-      return "The model rejected this request.";
-    case "provider_safety_blocked":
-      return "The model declined to answer.";
-    default:
-      return attempt.error_message ?? "The response failed.";
-  }
-}
-
-function WaitingIndicator() {
-  const [seconds, setSeconds] = useState(0);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setSeconds((value) => value + 1), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  return (
-    <span className="text-[13px] text-text-secondary">
-      Waiting for the model{seconds > 0 ? ` (${seconds}s)` : ""}
-      <span className="animate-pulse">...</span>
-    </span>
-  );
-}
-
-/** Retry action that respects the provider's cool-down. */
-function RetryAction({
-  retryAfterSeconds,
-  disabled,
-  onRetry,
-}: {
-  retryAfterSeconds: number | null;
-  disabled: boolean;
-  onRetry: () => void;
-}) {
-  const [remaining, setRemaining] = useState(() => Math.ceil(retryAfterSeconds ?? 0));
-
-  useEffect(() => {
-    if (remaining <= 0) {
-      return;
-    }
-    const id = window.setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearInterval(id);
-  }, [remaining]);
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={disabled || remaining > 0}
-        className="rounded-lg border border-surface-border-subtle bg-surface-elevated px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {remaining > 0 ? `Retry in ${formatWait(remaining)}` : "Retry"}
-      </button>
-      {remaining > 0 ? (
-        <span className="text-[12px] text-text-muted">
-          The model is rate limited; waiting before trying again.
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 export function MessageList({
@@ -157,100 +61,27 @@ export function MessageList({
       <div className="mx-auto w-full max-w-3xl space-y-7">
         {messages.map((message, index) =>
           message.role === "user" ? (
-            <div key={message.id} className="flex flex-col items-end">
-              <span className="mb-1.5 text-[11px] text-text-muted">
-                {formatTime(message.created_at)}
-              </span>
-              <div className="max-w-[94%] whitespace-pre-wrap rounded-2xl rounded-tr-xs border border-surface-border-subtle bg-surface-elevated p-4 text-[14px] leading-relaxed shadow-sm sm:max-w-[85%]">
-                {message.content}
-              </div>
-              {message.attempt?.retryable ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {messages[index + 1]?.role === "assistant" ? null : (
-                    <span className="text-[12px] text-text-muted">
-                      {describeFailure(message.attempt)}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onRetry(message.id)}
-                    disabled={streaming}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border-subtle px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary disabled:opacity-50"
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : null}
-            </div>
+            <UserTurn
+              key={message.id}
+              message={message}
+              hasAssistantReply={messages[index + 1]?.role === "assistant"}
+              streaming={streaming}
+              onRetry={onRetry}
+            />
           ) : (
-            <article key={message.id} className="flex flex-col gap-3">
-              <header className="flex flex-wrap items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-border bg-surface-elevated">
-                  <span className="h-3.5 w-3.5 rounded-full border border-amber-accent" />
-                </span>
-                <span className="text-[15px] font-medium">Lucid</span>
-                <UsageLine message={message} />
-                {message.attempt?.status === "interrupted" ? (
-                  <span className="rounded-full border border-amber-border bg-amber-dim px-2 py-0.5 text-[11px] font-medium text-amber-accent">
-                    Interrupted
-                  </span>
-                ) : null}
-                {message.attempt?.status === "failed" ? (
-                  <span className="rounded-full border border-danger-border bg-danger-dim px-2 py-0.5 text-[11px] font-medium text-danger">
-                    Failed
-                  </span>
-                ) : null}
-              </header>
-              <Markdown content={message.content} />
-            </article>
+            <AssistantTurn key={message.id} message={message} />
           ),
         )}
 
-        {streaming ? (
-          <article className="flex flex-col gap-3" aria-live="polite">
-            <header className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-amber-border bg-surface-elevated">
-                <span className="h-3.5 w-3.5 animate-pulse rounded-full border border-amber-accent" />
-              </span>
-              <span className="text-[15px] font-medium">Lucid</span>
-              <span className="font-mono text-[11px] text-text-muted">
-                {streamingText ? "streaming" : "waiting"}
-              </span>
-            </header>
-            <div className="markdown whitespace-pre-wrap text-[15px] leading-relaxed">
-              {streamingText ? (
-                <>
-                  {streamingText}
-                  <span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-amber-accent align-[-0.15em]" />
-                </>
-              ) : (
-                <WaitingIndicator />
-              )}
-            </div>
-          </article>
-        ) : null}
+        {streaming ? <StreamingTurn text={streamingText} /> : null}
 
         {error ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-danger-border bg-danger-dim p-4 text-[13px]"
-          >
-            <p className="font-medium text-text-primary">{error.message}</p>
-            <p className="mt-1 text-text-secondary">
-              Your message is saved.
-              {error.retryable && lastUserMessage
-                ? " Retrying reuses it and starts a new attempt."
-                : ""}
-            </p>
-            {error.retryable && lastUserMessage ? (
-              <RetryAction
-                key={`${error.code}-${error.retryAfterSeconds ?? 0}`}
-                retryAfterSeconds={error.retryAfterSeconds}
-                disabled={streaming}
-                onRetry={() => onRetry(lastUserMessage.id)}
-              />
-            ) : null}
-          </div>
+          <ErrorNotice
+            error={error}
+            lastUserMessage={lastUserMessage ?? null}
+            streaming={streaming}
+            onRetry={onRetry}
+          />
         ) : null}
       </div>
     </main>
