@@ -7,6 +7,8 @@ interface SidebarProps {
   hasMore: boolean;
   loadingMore: boolean;
   activeView: "chat" | "dashboard";
+  open: boolean;
+  onClose: () => void;
   onSelect: (id: string) => void;
   onNew: () => void;
   onDashboard: () => void;
@@ -21,6 +23,8 @@ export function Sidebar({
   hasMore,
   loadingMore,
   activeView,
+  open,
+  onClose,
   onSelect,
   onNew,
   onDashboard,
@@ -28,7 +32,14 @@ export function Sidebar({
   onLoadMore,
 }: SidebarProps) {
   return (
-    <aside className="flex h-full w-[260px] shrink-0 flex-col border-r border-surface-border bg-surface-sidebar">
+    <aside
+      id="app-sidebar"
+      className={[
+        "flex h-full w-[260px] shrink-0 flex-col border-r border-surface-border bg-surface-sidebar",
+        "fixed inset-y-0 left-0 z-40 transition-transform lg:static lg:z-auto lg:translate-x-0 lg:visible",
+        open ? "translate-x-0 shadow-2xl" : "invisible -translate-x-full",
+      ].join(" ")}
+    >
       <div className="flex h-16 items-center gap-2 px-4">
         <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-amber-accent">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-accent" />
@@ -37,6 +48,16 @@ export function Sidebar({
         <span className="ml-1 rounded border border-surface-border bg-surface-elevated px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
           v0.1
         </span>
+        {open ? (
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={onClose}
+            className="ml-auto rounded-md p-1.5 text-[13px] text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary lg:hidden"
+          >
+            ×
+          </button>
+        ) : null}
       </div>
 
       <div className="px-3 pb-2">

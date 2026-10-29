@@ -35,7 +35,7 @@ describe("DashboardPage", () => {
   it("loads the default 7-day range and renders the overview", async () => {
     mockedGetDashboard.mockResolvedValue(dashboardData());
 
-    render(<DashboardPage />, { wrapper });
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
 
     expect(await screen.findByText("92.8%")).toBeInTheDocument();
     expect(mockedGetDashboard).toHaveBeenCalledWith("7d", expect.any(AbortSignal));
@@ -52,7 +52,7 @@ describe("DashboardPage", () => {
     mockedGetDashboard.mockResolvedValue(dashboardData());
     const user = userEvent.setup();
 
-    render(<DashboardPage />, { wrapper });
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
     await screen.findByText("92.8%");
 
     await user.click(screen.getByRole("button", { name: "30 days" }));
@@ -65,7 +65,7 @@ describe("DashboardPage", () => {
     mockedGetDashboard.mockResolvedValue(dashboardData());
     const user = userEvent.setup();
 
-    render(<DashboardPage />, { wrapper });
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
     await screen.findByText("92.8%");
 
     await user.click(screen.getByRole("button", { name: /Refresh/ }));
@@ -78,7 +78,7 @@ describe("DashboardPage", () => {
     mockedGetDashboard.mockResolvedValueOnce(dashboardData());
     const user = userEvent.setup();
 
-    render(<DashboardPage />, { wrapper });
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
     await screen.findByText("92.8%");
 
     mockedGetDashboard.mockRejectedValue(new ApiError("request_failed", "Offline.", 503));
@@ -94,7 +94,7 @@ describe("DashboardPage", () => {
     mockedGetDashboard.mockRejectedValue(new ApiError("request_failed", "Offline.", 503));
     const user = userEvent.setup();
 
-    render(<DashboardPage />, { wrapper });
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
 
     expect(await screen.findByText("Couldn't load the dashboard")).toBeInTheDocument();
 
@@ -102,5 +102,44 @@ describe("DashboardPage", () => {
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("92.8%")).toBeInTheDocument();
+  });
+
+  it("explains a completely empty range instead of showing zeroes", async () => {
+    const base = dashboardData();
+    mockedGetDashboard.mockResolvedValue(
+      dashboardData({
+        overview: {
+          ...base.overview,
+          conversations_active: 0,
+          conversations_new: 0,
+          user_messages: 0,
+          attempts: 0,
+          completed: 0,
+          failed: 0,
+          interrupted: 0,
+          in_progress: 0,
+          success_rate: null,
+          input_tokens: 0,
+          output_tokens: 0,
+          average_input_tokens: null,
+          average_output_tokens: null,
+          usage_partial: false,
+          estimated_cost_usd: null,
+          pricing: { ...base.overview.pricing, available: false },
+        },
+        trend: [],
+        latency: {
+          ttft: { p50_ms: null, p95_ms: null, samples: 0 },
+          duration: { p50_ms: null, p95_ms: null, samples: 0 },
+        },
+        recent: [],
+      }),
+    );
+
+    render(<DashboardPage onOpenSidebar={() => {}} />, { wrapper });
+
+    expect(await screen.findByText("No telemetry in this range")).toBeInTheDocument();
+    expect(screen.queryByText("Conversations")).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 });

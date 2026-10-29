@@ -329,7 +329,8 @@ Backend tests: ~1,160 lines.
 | `src/App.tsx` (edit) | shell, view state, shared sidebar | 90 | 180 |
 | `src/pages/ChatPage.tsx` | chat content without sidebar | 110 | 180 |
 | `src/pages/DashboardPage.tsx` | layout, toolbar, states | 120 | 180 |
-| `src/components/Sidebar.tsx` (edit) | Dashboard row, active view | +20 | 200 |
+| `src/components/Sidebar.tsx` (edit) | Dashboard row, active view, off-canvas drawer | +40 | 200 |
+| `src/components/SidebarToggle.tsx` | header menu button | 15 | 100 |
 | `src/api/dashboard.ts` | fetch + types | 90 | 200 |
 | `src/api/types.ts` (edit) | dashboard payload types | +90 | 200 |
 | `src/hooks/useDashboard.ts` | query, refresh, stale | 70 | 180 |
@@ -457,16 +458,20 @@ as the third section. See the D5 report in `code-health-budget.md` §4.3.
 a horizontal scroll. The dialog shows metadata only. See the D6 report in
 `code-health-budget.md` §4.3.
 
-### D7 — States, responsive and acceptance
+### D7 - States, responsive and acceptance
 
-- [ ] Loading skeleton, empty range, request failure, partial usage, missing
+- [x] Loading skeleton, empty range, request failure, partial usage, missing
       pricing, insufficient samples.
-- [ ] Responsive pass at 1440/768/390; table → cards; modal fits.
-- [ ] Privacy check: response and UI never include prompts or message bodies.
-- [ ] Manual checklist and acceptance criteria in §9.
-- [ ] Milestone health report.
+- [x] Responsive pass at 1440/768/390; table → cards; modal fits.
+- [x] Privacy check: response and UI never include prompts or message bodies.
+- [x] Manual checklist and acceptance criteria in §9.
+- [x] Milestone health report.
 
 **Exit:** all acceptance criteria pass and the health report has no violations.
+**Done 2026-10-29.** 112 frontend and 237 backend tests pass. The sidebar is an
+off-canvas drawer below 1024 px, the table becomes cards below 1280 px, and the
+empty state replaces zeroed sections. See the D7 report in
+`code-health-budget.md` §4.3 and the manual checklist in §9.
 
 ## 8. Test plan
 
@@ -484,20 +489,35 @@ there and are required regardless of the total.
 
 ## 9. Acceptance mapping (spec 002 §11)
 
-- [ ] Dashboard opens from the sidebar.
-- [ ] Default range is 7 days; 24h and 30d work.
-- [ ] Refresh runs every 15–30s (20s) and manually.
-- [ ] Overview shows conversations, user messages, attempts, success rate,
+- [x] Dashboard opens from the sidebar.
+- [x] Default range is 7 days; 24h and 30d work.
+- [x] Refresh runs every 15–30s (20s) and manually.
+- [x] Overview shows conversations, user messages, attempts, success rate,
       input/output tokens and estimated cost.
-- [ ] Trends show tokens, latency and reliability over time.
-- [ ] Attempts are tracked separately; manual retries are new attempts and
+- [x] Trends show tokens, latency and reliability over time.
+- [x] Attempts are tracked separately; manual retries are new attempts and
       automatic retries are counted inside one.
-- [ ] Attempt metadata is recorded when available.
-- [ ] Compact details are inspectable.
-- [ ] Missing usage or pricing is unavailable/partial, never fabricated.
-- [ ] Telemetry older than 30 days is cleaned up without touching conversations.
-- [ ] No prompts, message bodies or provider payloads are stored in telemetry.
-- [ ] The dashboard is useful with no data or missing provider metadata.
+- [x] Attempt metadata is recorded when available.
+- [x] Compact details are inspectable.
+- [x] Missing usage or pricing is unavailable/partial, never fabricated.
+- [x] Telemetry older than 30 days is cleaned up without touching conversations.
+- [x] No prompts, message bodies or provider payloads are stored in telemetry.
+- [x] The dashboard is useful with no data or missing provider metadata.
+
+**Manual checklist (2026-10-29).**
+
+| Check | Result |
+|---|---|
+| Populated dashboard at 1440 px | Seven KPIs in one row, two-up latency charts, 1084 px table fits without horizontal scroll |
+| Tablet at 768 px | Four-up KPIs, cards instead of the table, off-canvas sidebar hidden, no horizontal overflow |
+| Phone at 390 px | Two-up KPIs, full-width cards, 260 px drawer with scrim, 358×543 modal |
+| Empty database | "No telemetry in this range" replaces zeroed sections; no chart or table |
+| Missing pricing | Cost reads "Unavailable" with "pricing not configured"; "Unavailable" fits a 390 px card |
+| Partial usage | KPI detail and token summary say "partial · usage missing" |
+| Backend stopped during refresh | Covered by the stale-banner test; retry keeps the last data |
+| 24h / 7d / 30d | Hourly vs daily labels switch with the range |
+| Drawer | Opens from the header button, closes on Escape, backdrop and the × button |
+| Details for completed/failed/interrupted | Status chips, retries, HTTP status and sanitized error block render |
 
 ## 10. Validation
 

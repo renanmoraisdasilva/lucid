@@ -1,6 +1,7 @@
 """Dashboard aggregation and response contract."""
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 import pytest
 from httpx import AsyncClient
@@ -10,6 +11,20 @@ import lucid.api.routes_dashboard as routes_dashboard
 from lucid.config import Settings
 from lucid.domain.enums import AttemptStatus
 from tests.integration.dashboard_support import seed_attempt, seed_conversation
+
+FORBIDDEN_KEYS = {"content", "prompt", "messages", "payload", "request", "response"}
+
+
+def _keys(payload: object) -> set[str]:
+    keys: set[str] = set()
+    if isinstance(payload, dict):
+        for key, value in cast(dict[str, object], payload).items():
+            keys.add(key)
+            keys |= _keys(value)
+    elif isinstance(payload, list):
+        for item in cast(list[object], payload):
+            keys |= _keys(item)
+    return keys
 
 
 async def _seed_populated(session: AsyncSession, now: datetime) -> None:
@@ -106,6 +121,7 @@ async def test_dashboard_aggregates_and_excludes_in_progress(
     assert body["recent"][0]["ttft_ms"] == 400.0
     assert body["recent"][0]["duration_ms"] == 2600.0
     assert "content" not in body["recent"][0]
+    assert FORBIDDEN_KEYS.isdisjoint(_keys(body))
 
 
 async def test_24h_excludes_older_attempts(

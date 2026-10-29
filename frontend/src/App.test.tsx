@@ -249,4 +249,24 @@ describe("App", () => {
     expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
     expect(await screen.findByRole("heading", { name: "Hello Lucid" })).toBeInTheDocument();
   });
+
+  it("opens and closes the mobile navigation drawer", async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderApp();
+    await screen.findByRole("button", { name: "Hello Lucid" });
+
+    expect(screen.queryByRole("button", { name: "Close navigation" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(screen.getByRole("button", { name: "Close navigation" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("button", { name: "Close navigation" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Open navigation" }));
+    await user.click(screen.getByRole("button", { name: "Close navigation" }));
+    expect(screen.queryByRole("button", { name: "Close navigation" })).toBeNull();
+  });
 });

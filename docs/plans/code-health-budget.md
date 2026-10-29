@@ -299,7 +299,7 @@ trend; the scan is the detail.
 - A seeded preview database was checked at 1000 px: varied token lines, p50/p95 separation, stacked reliability bars, and no x-label wrapping.
 - Backend unchanged at 236 tests and 90.6% coverage; the token averages were exposed in a separate contract commit.
 - Warnings: sidebar responsiveness is still D7; `failure-text.ts` remains the lowest-covered client file.
-- Violations: none.
+- Violations: none. (The D7 full run later found `build_overview` at 55 lines, over the 50-line cap; it was split in D7.)
 
 ### D6 health report (2026-10-29)
 
@@ -309,6 +309,17 @@ trend; the scan is the detail.
 - A seeded preview database was checked at 912 px: cards below 1280 px, the failed/automatic-retry path, and a 560×466 modal with focus on Close and a sanitized error block. The nine-column table needs 787 px, which drove the switch to cards below 1280 px.
 - Backend unchanged at 236 tests and 90.6% coverage.
 - Warnings: focus is not trapped inside the dialog (matching the existing `ConfirmDialog`); sidebar responsiveness and the 1440/768/390 pass are D7.
+- Violations: none.
+
+### D7 health report (2026-10-29)
+
+- Frontend: 112 tests, 3,451 source + 2,143 test lines, **91.4% lines / 84.0% branches** (90.9% statements, 91.6% functions).
+- Backend: 237 passed, 1 skipped, **90.7% coverage**, max function CC 10 (`build_trend`), minimum MI 37.69 (`dashboard/results.py`, warning band).
+- Changed files: `App` 118, `Sidebar` 192, `SidebarToggle` 13, `DashboardStates` 104, `DashboardPage` 78, `ChatPage` 42 lines. `Sidebar` is over the 150-line warning but under the 200-line cap.
+- `build_overview` had grown to 55 lines when averages landed in D5, over the 50-line cap. The D7 full suite caught it; it now delegates token totals, averages and pricing to three helpers, dropping from 12 to 3 CC and back under 30 lines.
+- Responsive checks used an iframe probe at 1440/768/390: no horizontal overflow at any width, seven KPI columns at 1440, four at 768, two at 390, table at 1440, cards below 1280, off-canvas drawer below 1024, 358×543 modal at 390.
+- Privacy: the integration payload is now checked recursively for `content`, `prompt`, `messages`, `payload`, `request` and `response` keys; the UI renders titles, statuses, counts and sanitized error strings only.
+- Warnings: `Sidebar` sits at 192 lines; `dashboard/results.py` MI is 37.69, in the sub-40 warning band; the dialog and drawer do not trap focus, matching the existing `ConfirmDialog` behavior.
 - Violations: none.
 
 The report is the answer to "is this getting out of hand?" If a number moves the

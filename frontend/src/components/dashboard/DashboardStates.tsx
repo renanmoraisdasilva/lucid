@@ -1,6 +1,8 @@
 export function DashboardLoading() {
   return (
-    <div aria-label="Loading dashboard" className="space-y-3">
+    <div aria-label="Loading dashboard" role="status" aria-busy="true" className="space-y-5">
+      <p className="sr-only">Loading dashboard…</p>
+
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 xl:grid-cols-7">
         {Array.from({ length: 7 }, (_, index) => (
           <div
@@ -9,7 +11,45 @@ export function DashboardLoading() {
           />
         ))}
       </div>
-      <div className="h-52 animate-pulse rounded-xl border border-surface-border bg-surface-elevated/30" />
+
+      <div className="space-y-3">
+        <div className="h-60 animate-pulse rounded-xl border border-surface-border bg-surface-elevated/30" />
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="h-56 animate-pulse rounded-xl border border-surface-border bg-surface-elevated/30" />
+          <div className="h-56 animate-pulse rounded-xl border border-surface-border bg-surface-elevated/30" />
+        </div>
+        <div className="h-56 animate-pulse rounded-xl border border-surface-border bg-surface-elevated/30" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="h-[74px] animate-pulse rounded-xl border border-surface-border bg-surface-elevated/40"
+          />
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="h-10 animate-pulse rounded-lg border border-surface-border bg-surface-elevated/30"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function DashboardEmpty() {
+  return (
+    <div className="rounded-xl border border-dashed border-surface-border bg-surface-elevated/20 px-6 py-14 text-center">
+      <h2 className="text-[15px] font-semibold text-text-primary">No telemetry in this range</h2>
+      <p className="mx-auto mt-1.5 max-w-md text-[12px] leading-relaxed text-text-secondary">
+        No messages were sent and no generations finished. Try a wider range, or start a chat and
+        the first attempt will appear here.
+      </p>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { DashboardRange } from "../api/types";
 import { DashboardToolbar } from "../components/dashboard/DashboardToolbar";
 import {
+  DashboardEmpty,
   DashboardError,
   DashboardLoading,
   StaleBanner,
@@ -11,17 +12,24 @@ import { OverviewMetrics } from "../components/dashboard/OverviewMetrics";
 import { RecentGenerations } from "../components/dashboard/RecentGenerations";
 import { TokenUsageSummary } from "../components/dashboard/TokenUsageSummary";
 import { TrendsSection } from "../components/dashboard/TrendsSection";
+import { SidebarToggle } from "../components/SidebarToggle";
 import { useDashboard } from "../hooks/useDashboard";
 
-export function DashboardPage() {
+export function DashboardPage({ onOpenSidebar }: { onOpenSidebar: () => void }) {
   const [range, setRange] = useState<DashboardRange>("7d");
   const dashboard = useDashboard(range);
   const data = dashboard.data;
   const refresh = () => void dashboard.refetch();
+  const isEmpty =
+    data !== undefined &&
+    data.overview.conversations_active === 0 &&
+    data.overview.user_messages === 0 &&
+    data.overview.attempts === 0;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center border-b border-surface-border px-4 sm:px-6">
+      <header className="flex h-14 shrink-0 items-center gap-1 border-b border-surface-border px-4 sm:px-6">
+        <SidebarToggle onOpen={onOpenSidebar} />
         <h1 className="text-[14px] font-medium">Dashboard</h1>
       </header>
 
@@ -46,18 +54,22 @@ export function DashboardPage() {
           ) : null}
 
           {data !== undefined ? (
-            <>
-              <OverviewMetrics overview={data.overview} />
-              <TrendsSection
-                trend={data.trend}
-                latency={data.latency}
-                bucket={data.bucket}
-                inputTotal={data.overview.input_tokens}
-                outputTotal={data.overview.output_tokens}
-              />
-              <TokenUsageSummary overview={data.overview} />
-              <RecentGenerations attempts={data.recent} />
-            </>
+            isEmpty ? (
+              <DashboardEmpty />
+            ) : (
+              <>
+                <OverviewMetrics overview={data.overview} />
+                <TrendsSection
+                  trend={data.trend}
+                  latency={data.latency}
+                  bucket={data.bucket}
+                  inputTotal={data.overview.input_tokens}
+                  outputTotal={data.overview.output_tokens}
+                />
+                <TokenUsageSummary overview={data.overview} />
+                <RecentGenerations attempts={data.recent} />
+              </>
+            )
           ) : null}
         </div>
       </main>

@@ -37,26 +37,39 @@ def _delta_ms(start: datetime, end: datetime | None) -> float | None:
     return round((end - start).total_seconds() * 1000, 1)
 
 
+def _token_totals(counts: OverviewCounts) -> tuple[int | None, int | None]:
+    if counts.attempts == 0:
+        return 0, 0
+    input_tokens = counts.input_tokens if counts.input_samples > 0 else None
+    output_tokens = counts.output_tokens if counts.output_samples > 0 else None
+    return input_tokens, output_tokens
+
+
+def _average(total: int | None, samples: int) -> int | None:
+    return round(total / samples) if total is not None and samples > 0 else None
+
+
+def _pricing_info(pricing: Pricing) -> PricingInfo:
+    return PricingInfo(
+        available=pricing.available,
+        free_tier=pricing.free_tier,
+        input_usd_per_million=(
+            float(pricing.input_usd_per_million)
+            if pricing.input_usd_per_million is not None
+            else None
+        ),
+        output_usd_per_million=(
+            float(pricing.output_usd_per_million)
+            if pricing.output_usd_per_million is not None
+            else None
+        ),
+    )
+
+
 def build_overview(counts: OverviewCounts, pricing: Pricing) -> Overview:
     """Apply partial-data and pricing rules to raw aggregates."""
     success_rate = round(counts.completed / counts.attempts, 4) if counts.attempts > 0 else None
-    if counts.attempts == 0:
-        input_tokens: int | None = 0
-        output_tokens: int | None = 0
-    else:
-        input_tokens = counts.input_tokens if counts.input_samples > 0 else None
-        output_tokens = counts.output_tokens if counts.output_samples > 0 else None
-
-    average_input = (
-        round(counts.input_tokens / counts.input_samples)
-        if counts.input_tokens is not None and counts.input_samples > 0
-        else None
-    )
-    average_output = (
-        round(counts.output_tokens / counts.output_samples)
-        if counts.output_tokens is not None and counts.output_samples > 0
-        else None
-    )
+    input_tokens, output_tokens = _token_totals(counts)
     estimate = pricing.estimate_usd(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -73,24 +86,11 @@ def build_overview(counts: OverviewCounts, pricing: Pricing) -> Overview:
         success_rate=success_rate,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        average_input_tokens=average_input,
-        average_output_tokens=average_output,
+        average_input_tokens=_average(counts.input_tokens, counts.input_samples),
+        average_output_tokens=_average(counts.output_tokens, counts.output_samples),
         usage_partial=counts.missing_usage > 0,
         estimated_cost_usd=float(estimate) if estimate is not None else None,
-        pricing=PricingInfo(
-            available=pricing.available,
-            free_tier=pricing.free_tier,
-            input_usd_per_million=(
-                float(pricing.input_usd_per_million)
-                if pricing.input_usd_per_million is not None
-                else None
-            ),
-            output_usd_per_million=(
-                float(pricing.output_usd_per_million)
-                if pricing.output_usd_per_million is not None
-                else None
-            ),
-        ),
+        pricing=_pricing_info(pricing),
     )
 
 

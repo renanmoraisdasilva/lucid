@@ -13,7 +13,21 @@ type View = "chat" | "dashboard";
 function AppShell() {
   const chat = useChat();
   const [view, setView] = useState<View>("chat");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
+
+  useEffect(() => {
+    if (!sidebarOpen) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sidebarOpen]);
 
   useEffect(() => {
     const newChat = chat.newChat;
@@ -29,6 +43,7 @@ function AppShell() {
   }, [chat.newChat]);
 
   const openConversation = (id: string) => {
+    setSidebarOpen(false);
     setView("chat");
     void chat.openConversation(id);
   };
@@ -42,12 +57,18 @@ function AppShell() {
         hasMore={chat.hasMore}
         loadingMore={chat.loadingMore}
         activeView={view}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         onSelect={openConversation}
         onNew={() => {
+          setSidebarOpen(false);
           setView("chat");
           chat.newChat();
         }}
-        onDashboard={() => setView("dashboard")}
+        onDashboard={() => {
+          setSidebarOpen(false);
+          setView("dashboard");
+        }}
         onDelete={(id) =>
           setDeleteTarget(
             chat.groups.flatMap((group) => group.items).find((item) => item.id === id) ?? null,
@@ -58,10 +79,18 @@ function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className={view === "chat" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-          <ChatPage chat={chat} />
+          <ChatPage chat={chat} onOpenSidebar={() => setSidebarOpen(true)} />
         </div>
-        {view === "dashboard" ? <DashboardPage /> : null}
+        {view === "dashboard" ? <DashboardPage onOpenSidebar={() => setSidebarOpen(true)} /> : null}
       </div>
+
+      {sidebarOpen ? (
+        <div
+          aria-hidden="true"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+        />
+      ) : null}
 
       {deleteTarget ? (
         <ConfirmDialog
