@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ModelOption } from "../api/types";
+import { ModelPicker } from "./ModelPicker";
 
 interface ComposerProps {
   streaming: boolean;
@@ -66,28 +67,12 @@ export function Composer({
           <div className="flex items-center justify-between gap-2 pt-1">
             <div className="flex min-w-0 items-center gap-2">
               {models.length > 0 ? (
-                <>
-                  <label htmlFor="model-picker" className="sr-only">
-                    Model
-                  </label>
-                  <select
-                    id="model-picker"
-                    value={modelId ?? ""}
-                    disabled={streaming}
-                    onChange={(event) => onSelectModel(event.target.value)}
-                    className="max-w-[9rem] truncate rounded-full border border-surface-border-subtle bg-transparent px-2 py-1 font-mono text-[11px] text-text-secondary transition-colors hover:border-amber-border focus:border-amber-border focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-none"
-                  >
-                    {models.map((option) => (
-                      <option
-                        key={option.id}
-                        value={option.id}
-                        className="bg-surface-elevated text-text-primary"
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </>
+                <ModelPicker
+                  models={models}
+                  value={modelId}
+                  disabled={streaming}
+                  onChange={onSelectModel}
+                />
               ) : null}
 
               {streaming ? (

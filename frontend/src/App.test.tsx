@@ -99,19 +99,23 @@ function modelsResponse(): Response {
     items: [
       {
         id: GROQ_MODEL_ID,
-        label: "GPT-OSS 120B",
+        label: "openai/gpt-oss-120b \u00b7 Groq",
         provider: "openai",
         model: "openai/gpt-oss-120b",
       },
       {
         id: GEMINI_MODEL_ID,
-        label: "Gemini 3.6 Flash",
+        label: "gemini-3.6-flash \u00b7 Gemini",
         provider: "gemini",
         model: "gemini-3.6-flash",
       },
     ],
     default_id: GROQ_MODEL_ID,
   });
+}
+
+function modelPicker(): HTMLElement {
+  return screen.getByRole("button", { name: /^Model: / });
 }
 
 function chatBodies(init?: RequestInit): Record<string, unknown> {
@@ -199,10 +203,16 @@ describe("App", () => {
 
     renderApp();
 
-    const picker = await screen.findByLabelText("Model");
-    expect(picker).toHaveValue(GROQ_MODEL_ID);
+    const picker = await screen.findByRole("button", { name: /^Model: / });
+    expect(picker).toHaveTextContent("openai/gpt-oss-120b");
 
-    await user.selectOptions(picker, GEMINI_MODEL_ID);
+    await user.click(picker);
+    expect(screen.getByRole("listbox", { name: "Model" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: /gemini-3\.6-flash/ }));
+
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(picker).toHaveTextContent("gemini-3.6-flash");
+
     await user.type(screen.getByLabelText("Message Lucid"), "Hello Lucid{Enter}");
 
     await waitFor(() => {
@@ -224,7 +234,7 @@ describe("App", () => {
       expect(screen.getByLabelText("Message Lucid")).not.toBeDisabled();
     });
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
-    expect(screen.getByLabelText("Model")).not.toBeDisabled();
+    expect(modelPicker()).not.toBeDisabled();
   });
 
   it("disables the composer while a response is streaming", async () => {
@@ -267,7 +277,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: "Stop" })).toBeInTheDocument();
     expect(screen.getByLabelText("Message Lucid")).toBeDisabled();
-    expect(screen.getByLabelText("Model")).toBeDisabled();
+    expect(modelPicker()).toBeDisabled();
 
     gate.close();
     await waitFor(() => {
