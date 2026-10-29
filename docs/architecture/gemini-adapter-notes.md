@@ -157,6 +157,35 @@ provider's reported usage is the only exact count and is the only number stored
 or displayed. The system prompt, reserved output, and a safety margin are
 subtracted before selection.
 
+## Rate limits and the SDK retry layer
+
+The free tier for `gemini-3.6-flash` allows **20 requests per day**. When the
+quota is exhausted the API returns `429` with a body like:
+
+```json
+{"error":{"message":"Rate limit exceeded for model gemini-3.6-flash
+ (limit: 20 requests per day on Free Tier). Please retry in 11h2m40s ...",
+ "code":"too_many_requests"}}
+```
+
+and a `Retry-After: 39340` header.
+
+Two behaviours made this look like a hang rather than a quota error:
+
+1. `HttpRetryOptions(attempts=1)` is clamped by the Interactions client to
+   `max_retries=1` (verified via `client.aio.interactions.sdk_configuration.retry_config`),
+   so the SDK always retries once.
+2. That retry layer **sleeps for the `Retry-After` duration** — 11 hours here —
+   and the sleep outlives our own timeouts.
+
+The adapter therefore wraps the HTTP transport in
+`RetryAfterStrippingTransport`, which removes `Retry-After` / `retry-after-ms`.
+The SDK's single retry then uses its normal ~500ms backoff and raises the 429 in
+about a second. The wait is not lost: it is parsed from the body into
+`ProviderRateLimited.retry_after_seconds`, sent to the client in the SSE `error`
+event, and used for an in-process cooldown so repeated clicks fail fast (0.06s
+measured) instead of calling the provider again.
+
 ## Cancellation (verified 2026-10-29)
 
 - **Client disconnect** during a real stream: Starlette cancels the response

@@ -194,6 +194,34 @@ def test_rate_limit_retry_delay_field_is_parsed() -> None:
     assert translated.retry_after_seconds == 7.0
 
 
+def test_compound_duration_hint_is_parsed() -> None:
+    """Real free-tier payload: "Please retry in 11h2m40s"."""
+    error = SimpleNamespace(
+        status_code=429,
+        message=(
+            "Error code: 429 - {'error': {'message': 'Rate limit exceeded for model "
+            "gemini-3.6-flash (limit: 20 requests per day on Free Tier). Please retry "
+            "in 11h2m40s or upgrade your tier.'}}"
+        ),
+    )
+
+    translated = classify_exception(error)  # type: ignore[arg-type]
+
+    assert isinstance(translated, ProviderRateLimited)
+    assert translated.retry_after_seconds == 39760.0
+
+
+def test_daily_limit_gets_an_actionable_message() -> None:
+    error = SimpleNamespace(
+        status_code=429,
+        message="Rate limit exceeded (limit: 20 requests per day on Free Tier).",
+    )
+
+    translated = classify_exception(error)  # type: ignore[arg-type]
+
+    assert "daily limit" in str(translated)
+
+
 def test_rate_limit_without_hint_has_no_wait() -> None:
     error = SimpleNamespace(status_code=429, message="quota exceeded")
 

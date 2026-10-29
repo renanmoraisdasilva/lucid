@@ -466,7 +466,7 @@ async def test_cooldown_prevents_calling_a_rate_limited_provider_again(
     provider = FakeProvider()
     registry = GenerationRegistry()
     cooldown = RateLimitCooldown()
-    cooldown.record(30.0)
+    cooldown.record(30.0, reason="The free-tier daily limit is reached.")
     prepared = await _prepare(session, "still cooling", provider)
 
     events = await _drain(_stream(prepared, provider, session_factory, registry, cooldown=cooldown))
@@ -474,6 +474,7 @@ async def test_cooldown_prevents_calling_a_rate_limited_provider_again(
     assert provider.requests == []
     assert events[-1][0] == "error"
     assert events[-1][1]["code"] == "provider_rate_limited"
+    assert events[-1][1]["message"] == "The free-tier daily limit is reached."
     remaining = events[-1][1]["retry_after_seconds"]
     assert isinstance(remaining, float)
     assert remaining > 0

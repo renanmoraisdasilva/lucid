@@ -12,6 +12,7 @@ import re
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final, cast
 
+import httpx
 from google import genai
 from google.genai import types
 
@@ -145,6 +146,28 @@ def classify_exception(error: object) -> ProviderError:
     return ProviderStreamError(detail=detail)
 
 
+class RetryAfterStrippingTransport(httpx.AsyncBaseTransport):
+    """Removes provider retry hints before the SDK sees them.
+
+    The SDK's retry layer sleeps for the ``Retry-After`` duration, which Google
+    sends as ~11 hours when a free-tier daily quota is exhausted. Awaiting that
+    made a rejected request look like a 400+ second hang. The wait is surfaced to
+    the user instead (``retry_after_seconds``), so the SDK must not sleep on it.
+    """
+
+    def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
+        self._inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        response = await self._inner.handle_async_request(request)
+        response.headers.pop("retry-after", None)
+        response.headers.pop("retry-after-ms", None)
+        return response
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
 class GeminiProvider:
     """Streams text from Gemini via the Interactions API."""
 
@@ -162,14 +185,18 @@ class GeminiProvider:
         self._model = model
         self._max_output_tokens = max_output_tokens
         self._thinking_level = thinking_level
+        self._http_client = httpx.AsyncClient(
+            transport=RetryAfterStrippingTransport(httpx.AsyncHTTPTransport()),
+            timeout=httpx.Timeout(timeout_seconds),
+        )
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
                 timeout=int(timeout_seconds * 1000),
-                # No hidden retries: the SDK's default retry loop swallowed our
-                # cancellation and stretched a 50s deadline past 400s. Retry
-                # policy belongs to the application (ADR-005).
+                # No retries of our own beyond the SDK's single attempt; the
+                # application retry policy is the only one (ADR-005).
                 retry_options=types.HttpRetryOptions(attempts=1),
+                httpx_async_client=self._http_client,
             ),
         )
 
@@ -211,7 +238,17 @@ class GeminiProvider:
 
 def _from_status(status: int, detail: str) -> ProviderError:
     if status == 429:
-        return ProviderRateLimited(detail=detail, retry_after_seconds=_retry_after_seconds(detail))
+        daily = "per day" in detail.lower()
+        return ProviderRateLimited(
+            (
+                "The free-tier daily limit is reached. Try again later, switch the "
+                "model, or upgrade the tier."
+                if daily
+                else None
+            ),
+            detail=detail,
+            retry_after_seconds=_retry_after_seconds(detail),
+        )
     if status in (408, 504):
         return ProviderTimeout(detail=detail)
     if status >= 500:
@@ -222,9 +259,22 @@ def _from_status(status: int, detail: str) -> ProviderError:
 
 
 _RETRY_HINT_PATTERNS: Final = (
-    re.compile(r"retry in ([\d.]+)\s*s", re.IGNORECASE),
-    re.compile(r'"retryDelay"\s*:\s*"([\d.]+)s"', re.IGNORECASE),
+    re.compile(r"retry in ([0-9hms.]+)", re.IGNORECASE),
+    re.compile(r'"retryDelay"\s*:\s*"([0-9hms.]+)"', re.IGNORECASE),
 )
+
+_DURATION_PART: Final = re.compile(r"(\d+(?:\.\d+)?)([hms])")
+_UNIT_SECONDS: Final = {"h": 3600.0, "m": 60.0, "s": 1.0}
+
+
+def _parse_duration(text: str) -> float | None:
+    """Parse provider durations such as ``21.2s``, ``2m``, or ``11h2m40s``."""
+    total = 0.0
+    found = False
+    for value, unit in _DURATION_PART.findall(text):
+        found = True
+        total += float(value) * _UNIT_SECONDS[unit]
+    return total if found else None
 
 
 def _retry_after_seconds(detail: str) -> float | None:
@@ -232,10 +282,9 @@ def _retry_after_seconds(detail: str) -> float | None:
     for pattern in _RETRY_HINT_PATTERNS:
         match = pattern.search(detail)
         if match is not None:
-            try:
-                return float(match.group(1))
-            except ValueError:  # pragma: no cover - regex only captures numbers
-                return None
+            parsed = _parse_duration(match.group(1))
+            if parsed is not None:
+                return parsed
     return None
 
 

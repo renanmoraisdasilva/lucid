@@ -172,6 +172,20 @@ describe("MessageList", () => {
     expect(screen.getByText(/rate limited; waiting before trying again/)).toBeInTheDocument();
   });
 
+  it("formats a daily quota wait in hours, not seconds", () => {
+    renderList({
+      error: {
+        code: "provider_rate_limited",
+        message: "The free-tier daily limit is reached.",
+        retryable: true,
+        messageId: null,
+        retryAfterSeconds: 39760,
+      },
+    });
+
+    expect(screen.getByRole("button", { name: "Retry in 11h 2m" })).toBeDisabled();
+  });
+
   it("shows the empty state when there is nothing to show", () => {
     renderList({ messages: [] });
 

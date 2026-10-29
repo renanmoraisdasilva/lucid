@@ -297,6 +297,10 @@ folder.
 
 - No authentication or multi-user support. Do not expose this beyond localhost.
 - Single backend process: generation tracking is in-process.
+- The free tier allows **20 requests per day** for `gemini-3.6-flash`. When the
+  quota is exhausted the provider returns 429 with a multi-hour wait; the UI
+  shows the reset time and disables Retry until then. A paid tier or another
+  model avoids this.
 - No conversation summarization; long conversations lose their oldest turns
   from the model's context (the data is still stored).
 - Model is fixed by configuration; there is no model picker yet.

@@ -245,7 +245,7 @@ async def stream_generation(
             if cooldown is not None:
                 remaining = cooldown.remaining()
                 if remaining > 0:
-                    raise ProviderRateLimited(retry_after_seconds=remaining)
+                    raise ProviderRateLimited(cooldown.reason, retry_after_seconds=remaining)
 
             async with session_factory() as session:
                 history = await MessageRepository(session).list_for_conversation(
@@ -294,7 +294,7 @@ async def stream_generation(
                 raise EmptyProviderResponse()
         except ProviderError as error:
             if isinstance(error, ProviderRateLimited) and cooldown is not None:
-                cooldown.record(error.retry_after_seconds)
+                cooldown.record(error.retry_after_seconds, reason=str(error))
             finalized = True
             finalized_turn = await _finalize(
                 session_factory,

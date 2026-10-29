@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { AttemptSummary, Message } from "../api/types";
 import type { ChatError } from "../hooks/useChat";
+import { formatWait } from "../lib/duration";
 import { Markdown } from "./Markdown";
 
 interface MessageListProps {
@@ -99,7 +100,7 @@ function RetryAction({
         disabled={disabled || remaining > 0}
         className="rounded-lg border border-surface-border-subtle bg-surface-elevated px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {remaining > 0 ? `Retry in ${remaining}s` : "Retry"}
+        {remaining > 0 ? `Retry in ${formatWait(remaining)}` : "Retry"}
       </button>
       {remaining > 0 ? (
         <span className="text-[12px] text-text-muted">
