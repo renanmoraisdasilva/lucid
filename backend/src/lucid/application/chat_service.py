@@ -12,6 +12,7 @@ Responsibilities:
 """
 
 import asyncio
+import logging
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import suppress
@@ -21,12 +22,15 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from lucid.application.context import ContextBudget, select_history
 from lucid.application.registry import GenerationRegistry
+from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus, Role
 from lucid.domain.errors import ProviderError
 from lucid.domain.provider import (
     ChatProvider,
     GenerationRequest,
+    ProviderEvent,
     ProviderMessage,
     TextDelta,
     Usage,
@@ -36,6 +40,8 @@ from lucid.persistence.repositories import (
     ConversationRepository,
     MessageRepository,
 )
+
+logger = logging.getLogger(__name__)
 
 GenerationEvent = tuple[str, dict[str, object]]
 
@@ -199,8 +205,12 @@ async def stream_generation(
     model: str,
     max_output_tokens: int,
     registry: GenerationRegistry,
+    context_budget: ContextBudget | None = None,
+    retry_policy: RetryPolicy | None = None,
 ) -> AsyncGenerator[GenerationEvent, None]:
     """Yield the application stream events for one generation."""
+    budget = context_budget or ContextBudget()
+    policy = retry_policy or RetryPolicy()
     active = await registry.register(prepared.attempt_id)
     buffer: list[str] = []
     usage: Usage | None = None
@@ -221,23 +231,33 @@ async def stream_generation(
             },
         )
 
-        async with session_factory() as session:
-            history = await MessageRepository(session).list_for_conversation(
-                prepared.conversation_id
-            )
-        request = GenerationRequest(
-            model=model,
-            system_prompt=system_prompt,
-            messages=[
-                ProviderMessage(role=Role(message.role), content=message.content)
-                for message in history
-            ],
-            max_output_tokens=max_output_tokens,
-            request_id=str(prepared.attempt_id),
-        )
-
         try:
-            async for event in provider.stream(request):
+            async with session_factory() as session:
+                history = await MessageRepository(session).list_for_conversation(
+                    prepared.conversation_id
+                )
+            request = GenerationRequest(
+                model=model,
+                system_prompt=system_prompt,
+                messages=select_history(
+                    [
+                        ProviderMessage(role=Role(message.role), content=message.content)
+                        for message in history
+                    ],
+                    system_prompt=system_prompt,
+                    budget=budget,
+                ),
+                max_output_tokens=max_output_tokens,
+                request_id=str(prepared.attempt_id),
+            )
+
+            async for event in _stream_with_retries(
+                provider,
+                request,
+                policy=policy,
+                stop_event=active.stop_requested,
+                attempt_id=prepared.attempt_id,
+            ):
                 if active.stop_requested.is_set():
                     stopped = True
                     break
@@ -319,6 +339,59 @@ async def stream_generation(
         raise
     finally:
         await registry.deregister(prepared.attempt_id)
+
+
+async def _stream_with_retries(
+    provider: ChatProvider,
+    request: GenerationRequest,
+    *,
+    policy: RetryPolicy,
+    stop_event: asyncio.Event,
+    attempt_id: uuid.UUID,
+) -> AsyncGenerator[ProviderEvent, None]:
+    """Stream from the provider, retrying transient failures before any output.
+
+    A retry re-issues the same request inside the same attempt; nothing is
+    duplicated because retries are only allowed while the buffer is empty.
+    """
+    retry_index = 0
+    emitted = False
+
+    while True:
+        try:
+            async for event in provider.stream(request):
+                if isinstance(event, TextDelta):
+                    emitted = True
+                yield event
+            return
+        except ProviderError as error:
+            if not policy.is_retryable(error, has_output=emitted):
+                raise
+            if retry_index >= policy.max_retries:
+                raise
+
+            delay = policy.delay_seconds(retry_index)
+            logger.warning(
+                "retrying provider call",
+                extra={
+                    "ctx_attempt_id": str(attempt_id),
+                    "ctx_retry_index": retry_index + 1,
+                    "ctx_delay_seconds": round(delay, 3),
+                    "ctx_error_code": error.code,
+                },
+            )
+            retry_index += 1
+            if await _sleep_or_stop(stop_event, delay):
+                return
+
+
+async def _sleep_or_stop(stop_event: asyncio.Event, delay: float) -> bool:
+    """Sleep unless a stop is requested first. Returns True when stopped."""
+    try:
+        await asyncio.wait_for(stop_event.wait(), timeout=delay)
+    except TimeoutError:
+        return False
+    return True
 
 
 async def _finalize(

@@ -31,8 +31,10 @@ from lucid.application.chat_service import (
     prepare_retry,
     stream_generation,
 )
+from lucid.application.context import ContextBudget
 from lucid.application.registry import GenerationRegistry
-from lucid.config import get_settings
+from lucid.application.retry import RetryPolicy
+from lucid.config import Settings, get_settings
 from lucid.domain.enums import AttemptStatus
 from lucid.domain.provider import ChatProvider
 from lucid.persistence.repositories import AttemptRepository
@@ -182,6 +184,8 @@ def _stream_response(
         model=settings.gemini_model,
         max_output_tokens=settings.gemini_max_output_tokens,
         registry=registry,
+        context_budget=_context_budget(settings),
+        retry_policy=_retry_policy(settings),
     )
 
     async def frames() -> AsyncIterator[str]:
@@ -201,4 +205,22 @@ def _generation_in_progress(error: GenerationInProgressError) -> ApiError:
         str(error),
         status_code=409,
         details={"attempt_id": str(error.attempt_id)},
+    )
+
+
+def _context_budget(settings: Settings) -> ContextBudget:
+    return ContextBudget(
+        max_input_tokens=settings.context_max_input_tokens,
+        reserved_output_tokens=settings.context_reserved_output_tokens,
+        safety_margin_tokens=settings.context_safety_margin_tokens,
+        max_messages=settings.context_max_messages,
+    )
+
+
+def _retry_policy(settings: Settings) -> RetryPolicy:
+    return RetryPolicy(
+        max_retries=settings.generation_max_retries,
+        base_delay_ms=settings.retry_base_delay_ms,
+        max_delay_ms=settings.retry_max_delay_ms,
+        jitter=settings.retry_jitter,
     )

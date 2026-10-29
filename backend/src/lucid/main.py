@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -18,7 +19,10 @@ from lucid.persistence.db import (
     get_session_factory,
     init_engine,
 )
+from lucid.persistence.reconciliation import reconcile_stale_attempts
 from lucid.providers.factory import build_provider
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -30,6 +34,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.system_prompt = load_system_prompt(settings.system_prompt_path)
     app.state.session_factory = get_session_factory()
     app.state.registry = GenerationRegistry()
+
+    if settings.reconcile_on_startup:
+        await reconcile_stale_attempts(app.state.session_factory)
+
+    logger.info(
+        "startup complete",
+        extra={
+            "ctx_provider": settings.provider,
+            "ctx_model": settings.gemini_model,
+            "ctx_context_tokens": settings.context_max_input_tokens,
+        },
+    )
     try:
         yield
     finally:

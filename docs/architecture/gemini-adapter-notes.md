@@ -103,6 +103,19 @@ therefore classifies by status code and by class name instead of importing them.
 Domain error messages are fixed strings; provider text is kept in
 `ProviderError.detail` for logs only.
 
+## Token counting
+
+`client.aio.models.count_tokens` exists, but it accepts `generateContent` content
+shapes (`Content`, `Part`, ...). `client.aio.interactions` exposes no counting
+method, and converting our steps back into `contents` would cost a network round
+trip per turn for an approximate number.
+
+**Decision:** selection uses the local heuristic in
+`application/context.py` (`ceil(characters / 4)` plus 4 tokens per message). The
+provider's reported usage is the only exact count and is the only number stored
+or displayed. The system prompt, reserved output, and a safety margin are
+subtracted before selection.
+
 ## Cancellation (verified 2026-10-29)
 
 - **Client disconnect** during a real stream: Starlette cancels the response

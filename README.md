@@ -10,15 +10,12 @@ without hiding behind a framework or an agent library.
 
 ## Status
 
-**Milestone 4 (streaming chat) complete.** Replies stream over SSE with `meta`,
-`delta`, `usage`, and exactly one terminal `done`/`error` event. Stop, client
-disconnect, retry, and the 409 concurrency rule are implemented and tested. The
-temporary JSON endpoint is gone. Verified against live Gemini: incremental
-deltas, `usage` (`117 in / 1 out`), and a deliberate mid-stream abort that
-persisted a 43-character interrupted message with no active attempt left behind.
-
-The React app is functional: conversation list, streaming thread, Stop, Retry,
-errors, usage. Visual polish against `docs/screen-mockups/` is Milestone 6.
+**Milestone 5 (context, usage, resilience) complete.** Only a bounded, budgeted
+slice of history is sent to the model, transient provider failures are retried
+inside a single attempt, and attempts stranded by a crash are reconciled at
+startup. Verified live: a seeded `in_progress` attempt became
+`interrupted / process_restart` on boot, and a normal chat still streamed to
+completion afterwards.
 
 | Milestone | State |
 |---|---|
@@ -27,8 +24,8 @@ errors, usage. Visual polish against `docs/screen-mockups/` is Milestone 6.
 | 2 — Persistence and conversations | ✅ |
 | 3 — Provider boundary and Gemini adapter | ✅ |
 | 4 — Streaming chat | ✅ |
-| 5 — Context, usage, resilience | ⬜ next |
-| 6 — UI polish and acceptance | ⬜ |
+| 5 — Context, usage, resilience | ✅ |
+| 6 — UI polish and acceptance | ⬜ next |
 
 ## Documentation
 

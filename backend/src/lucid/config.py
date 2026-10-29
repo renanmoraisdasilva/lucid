@@ -40,6 +40,18 @@ class Settings(BaseSettings):
     gemini_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
     gemini_max_output_tokens: int = Field(default=2048, ge=1, le=8192)
 
+    context_max_input_tokens: int = Field(default=20_000, ge=1_000)
+    context_reserved_output_tokens: int = Field(default=4_096, ge=0)
+    context_safety_margin_tokens: int = Field(default=512, ge=0)
+    context_max_messages: int = Field(default=60, ge=1, le=1_000)
+
+    generation_max_retries: int = Field(default=2, ge=0, le=5)
+    retry_base_delay_ms: int = Field(default=1_000, ge=1)
+    retry_max_delay_ms: int = Field(default=8_000, ge=1)
+    retry_jitter: bool = True
+
+    reconcile_on_startup: bool = True
+
     system_prompt_path: Path = Field(default=BACKEND_DIR / "prompts" / "system.md")
 
 

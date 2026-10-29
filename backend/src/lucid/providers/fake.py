@@ -1,7 +1,7 @@
 """Deterministic fake provider for tests and offline development."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 
 from lucid.domain.provider import (
@@ -34,16 +34,26 @@ class FakeProvider:
 
     name = "fake"
 
-    def __init__(self, script: FakeScript | None = None) -> None:
+    def __init__(
+        self,
+        script: FakeScript | None = None,
+        *,
+        scripts: Sequence[FakeScript] | None = None,
+    ) -> None:
         self.script = script or FakeScript()
+        self._pending: list[FakeScript] = list(scripts or [])
         self.requests: list[GenerationRequest] = []
 
     def set_script(self, script: FakeScript) -> None:
         self.script = script
 
+    def queue(self, *scripts: FakeScript) -> None:
+        """Queue scripts for the next calls, then fall back to the current script."""
+        self._pending.extend(scripts)
+
     async def stream(self, request: GenerationRequest) -> AsyncIterator[ProviderEvent]:
         self.requests.append(request)
-        script = self.script
+        script = self._pending.pop(0) if self._pending else self.script
 
         if script.fail_before_first_token is not None:
             raise script.fail_before_first_token

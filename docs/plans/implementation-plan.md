@@ -532,9 +532,11 @@ Rules:
   usage comes from the provider and is what gets stored/displayed.
 - A provider-side `context_too_large` (or a 400 mentioning input length) is
   translated to the same non-retryable code.
-- Milestone 5 includes a spike: if the Interactions API exposes a token-count
-  endpoint, use it for a single pre-flight count when the estimate is within 10%
-  of the budget; otherwise keep the heuristic. Record the outcome in
+- **Spike outcome (2026-10-29):** the SDK exposes `models.count_tokens`, but only
+  for `generateContent` content shapes; the Interactions client has no counting
+  method, and converting steps back to `contents` would add a network round trip
+  per turn for an approximate number. **Decision: keep the character heuristic
+  for selection and treat provider usage as the only exact count.** Details in
   `docs/architecture/gemini-adapter-notes.md`.
 
 ---
