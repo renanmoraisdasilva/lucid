@@ -18,6 +18,7 @@ const USER_MESSAGE: Message = {
     attempt_no: 1,
     retryable: true,
     error_code: "provider_unavailable",
+    error_message: null,
     usage: null,
   },
 };
@@ -35,6 +36,7 @@ const ASSISTANT_MESSAGE: Message = {
     attempt_no: 1,
     retryable: false,
     error_code: "interrupted",
+    error_message: null,
     usage: null,
   },
 };
@@ -67,11 +69,72 @@ describe("MessageList", () => {
 
   it("offers retry on a failed user message", async () => {
     const user = userEvent.setup();
-    const { onRetry } = renderList();
+    const { onRetry } = renderList({ messages: [USER_MESSAGE] });
 
+    expect(screen.getByText("The model was temporarily unavailable.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(onRetry).toHaveBeenCalledWith("u1");
+  });
+
+  it("keeps retry but hides the reason when a partial answer is visible", () => {
+    renderList({
+      messages: [
+        {
+          ...USER_MESSAGE,
+          attempt: {
+            ...USER_MESSAGE.attempt!,
+            status: "interrupted",
+            error_code: "interrupted",
+          },
+        },
+        ASSISTANT_MESSAGE,
+      ],
+    });
+
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("The response was interrupted before any text arrived.")).toBeNull();
+    expect(screen.getByText("Interrupted")).toBeInTheDocument();
+  });
+
+  it("explains an interrupted attempt that produced no text", () => {
+    renderList({
+      messages: [
+        {
+          ...USER_MESSAGE,
+          attempt: {
+            ...USER_MESSAGE.attempt!,
+            status: "interrupted",
+            error_code: "interrupted",
+          },
+        },
+      ],
+      error: null,
+    });
+
+    expect(
+      screen.getByText("The response was interrupted before any text arrived."),
+    ).toBeInTheDocument();
+  });
+
+  it("explains a restart during generation", () => {
+    renderList({
+      messages: [
+        {
+          ...USER_MESSAGE,
+          attempt: {
+            ...USER_MESSAGE.attempt!,
+            status: "interrupted",
+            error_code: "process_restart",
+          },
+        },
+      ],
+      error: null,
+    });
+
+    expect(
+      screen.getByText("The server restarted before the answer finished."),
+    ).toBeInTheDocument();
   });
 
   it("renders an error banner with retry for the last user message", async () => {

@@ -186,6 +186,7 @@ def _stream_response(
         registry=registry,
         context_budget=_context_budget(settings),
         retry_policy=_retry_policy(settings),
+        first_token_timeout=settings.generation_first_token_timeout_seconds,
     )
 
     async def frames() -> AsyncIterator[str]:

@@ -15,6 +15,7 @@ from lucid.application.chat_service import (
     stream_generation,
 )
 from lucid.application.registry import GenerationRegistry
+from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus
 from lucid.domain.errors import ProviderUnavailable
 from lucid.persistence.tables import GenerationAttempt
@@ -38,6 +39,9 @@ def _stream(
     provider: FakeProvider,
     session_factory: async_sessionmaker[AsyncSession],
     registry: GenerationRegistry,
+    *,
+    first_token_timeout: float | None = None,
+    policy: RetryPolicy | None = None,
 ) -> AsyncGenerator[GenerationEvent, None]:
     return stream_generation(
         prepared,
@@ -47,6 +51,8 @@ def _stream(
         model="fake-model",
         max_output_tokens=64,
         registry=registry,
+        retry_policy=policy,
+        first_token_timeout=first_token_timeout,
     )
 
 
@@ -225,6 +231,109 @@ async def test_provider_failure_after_partial_text_keeps_the_message(
     assert attempt.status == AttemptStatus.FAILED.value
     assert attempt.error_code == "provider_unavailable"
     assert attempt.assistant_message_id is not None
+
+
+async def test_empty_completion_is_a_visible_retryable_failure(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Regression: an empty completion used to look like a silent success."""
+    provider = FakeProvider(FakeScript(deltas=(), usage=None))
+    registry = GenerationRegistry()
+    prepared = await _prepare(session, "say nothing", provider)
+
+    events = await _drain(_stream(prepared, provider, session_factory, registry))
+
+    names = [name for name, _ in events]
+    assert names == ["meta", "error"]
+    error = events[-1][1]
+    assert error["code"] == "empty_response"
+    assert error["retryable"] is True
+
+    attempt = await _attempt(session_factory, prepared.attempt_id)
+    assert attempt.status == AttemptStatus.FAILED.value
+    assert attempt.error_code == "empty_response"
+    assert attempt.assistant_message_id is None
+
+
+async def test_queued_provider_fails_fast_at_the_first_token_deadline(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Regression: a queued request waited blank for 30-60 seconds."""
+    provider = FakeProvider(FakeScript(deltas=("late",), delay_seconds=0.25))
+    registry = GenerationRegistry()
+    prepared = await _prepare(session, "wait for it", provider)
+    policy = RetryPolicy(max_retries=0, base_delay_ms=1, jitter=False)
+
+    events = await _drain(
+        _stream(
+            prepared,
+            provider,
+            session_factory,
+            registry,
+            first_token_timeout=0.05,
+            policy=policy,
+        )
+    )
+
+    names = [name for name, _ in events]
+    assert names == ["meta", "error"]
+    error = events[-1][1]
+    assert error["code"] == "provider_timeout"
+    assert error["retryable"] is True
+
+    attempt = await _attempt(session_factory, prepared.attempt_id)
+    assert attempt.status == AttemptStatus.FAILED.value
+    assert attempt.error_code == "provider_timeout"
+
+
+async def test_first_token_timeout_is_not_automatically_retried(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """A queued provider should fail once, not three times over 75 seconds."""
+    provider = FakeProvider(FakeScript(deltas=("late",), delay_seconds=0.3))
+    registry = GenerationRegistry()
+    prepared = await _prepare(session, "still queued", provider)
+
+    events = await _drain(
+        _stream(
+            prepared,
+            provider,
+            session_factory,
+            registry,
+            first_token_timeout=0.05,
+            policy=RetryPolicy(max_retries=2, base_delay_ms=1, jitter=False),
+        )
+    )
+
+    assert events[-1][0] == "error"
+    assert events[-1][1]["code"] == "provider_timeout"
+    assert len(provider.requests) == 1
+
+
+async def test_first_token_deadline_does_not_fire_after_text_arrives(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = FakeProvider(FakeScript(deltas=("a", "b", "c"), delay_seconds=0.02))
+    registry = GenerationRegistry()
+    prepared = await _prepare(session, "steady", provider)
+
+    events = await _drain(
+        _stream(
+            prepared,
+            provider,
+            session_factory,
+            registry,
+            first_token_timeout=0.5,
+        )
+    )
+
+    assert [name for name, _ in events][-1] == "done"
+    attempt = await _attempt(session_factory, prepared.attempt_id)
+    assert attempt.status == AttemptStatus.COMPLETED.value
 
 
 async def test_registry_is_empty_after_each_stream(

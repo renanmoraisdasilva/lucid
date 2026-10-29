@@ -396,6 +396,7 @@ Message semantics:
 | `provider_unavailable` | stream | yes | 5xx, connection reset, `gateway_timeout` |
 | `provider_invalid_request` | stream | no | 400-class provider rejection |
 | `provider_safety_blocked` | stream | no | Refusal/safety stop |
+| `empty_response` | stream | yes | Provider finished without producing any text |
 | `provider_stream_error` | stream | no | Malformed/aborted stream |
 | `internal_error` | 500 / stream | no | Logged with correlation id, never leaks detail |
 
@@ -483,6 +484,7 @@ forwarded.
 | `GEMINI_TIMEOUT_SECONDS` | `60` | Overall request timeout |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `2048` | Cap on generated tokens |
 | `GENERATION_MAX_RETRIES` | `2` | Automatic retries per attempt |
+| `GENERATION_FIRST_TOKEN_TIMEOUT_SECONDS` | `25` | Abort a call with no text after this window |
 | `RETRY_BASE_DELAY_MS` | `1000` | Exponential base |
 | `RETRY_MAX_DELAY_MS` | `8000` | Backoff cap |
 | `RETRY_JITTER` | `true` | Disabled in tests for determinism |

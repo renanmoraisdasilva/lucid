@@ -26,7 +26,7 @@ from lucid.application.context import ContextBudget, select_history
 from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus, Role
-from lucid.domain.errors import ProviderError
+from lucid.domain.errors import EmptyProviderResponse, ProviderError, ProviderTimeout
 from lucid.domain.provider import (
     ChatProvider,
     GenerationRequest,
@@ -207,6 +207,7 @@ async def stream_generation(
     registry: GenerationRegistry,
     context_budget: ContextBudget | None = None,
     retry_policy: RetryPolicy | None = None,
+    first_token_timeout: float | None = None,
 ) -> AsyncGenerator[GenerationEvent, None]:
     """Yield the application stream events for one generation."""
     budget = context_budget or ContextBudget()
@@ -257,6 +258,7 @@ async def stream_generation(
                 policy=policy,
                 stop_event=active.stop_requested,
                 attempt_id=prepared.attempt_id,
+                first_token_timeout=first_token_timeout,
             ):
                 if active.stop_requested.is_set():
                     stopped = True
@@ -267,6 +269,15 @@ async def stream_generation(
                 else:
                     usage = event.usage
                     finish_reason = event.finish_reason
+
+            # A stop during the retry backoff yields no events, so re-check it here.
+            if active.stop_requested.is_set():
+                stopped = True
+
+            # A finished stream with no text is a failure the user must see, not a
+            # silent empty answer. A stopped turn is not an empty answer.
+            if not buffer and not stopped:
+                raise EmptyProviderResponse()
         except ProviderError as error:
             finalized = True
             finalized_turn = await _finalize(
@@ -348,22 +359,34 @@ async def _stream_with_retries(
     policy: RetryPolicy,
     stop_event: asyncio.Event,
     attempt_id: uuid.UUID,
+    first_token_timeout: float | None = None,
 ) -> AsyncGenerator[ProviderEvent, None]:
     """Stream from the provider, retrying transient failures before any output.
 
     A retry re-issues the same request inside the same attempt; nothing is
-    duplicated because retries are only allowed while the buffer is empty.
+    duplicated because retries are only allowed while the buffer is empty. Each
+    attempt is bounded by ``first_token_timeout`` until the first text arrives,
+    so a queued provider fails with a retryable timeout instead of a blank wait.
     """
     retry_index = 0
     emitted = False
 
     while True:
         try:
-            async for event in provider.stream(request):
-                if isinstance(event, TextDelta):
-                    emitted = True
-                yield event
+            timeout = asyncio.timeout(first_token_timeout)
+            async with timeout:
+                async for event in provider.stream(request):
+                    if isinstance(event, TextDelta) and not emitted:
+                        emitted = True
+                        # Output has started; the first-token budget no longer applies.
+                        timeout.reschedule(None)
+                    yield event
             return
+        except TimeoutError as error:
+            # Deliberately not auto-retried: the provider is queued, so retrying
+            # would only multiply the wait (up to 3 x 25s). The user gets a
+            # retryable error and a Retry action instead.
+            raise ProviderTimeout(detail=f"no text within {first_token_timeout}s") from error
         except ProviderError as error:
             if not policy.is_retryable(error, has_output=emitted):
                 raise

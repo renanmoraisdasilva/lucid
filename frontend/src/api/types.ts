@@ -16,6 +16,7 @@ export interface AttemptSummary {
   attempt_no: number;
   retryable: boolean;
   error_code: string | null;
+  error_message: string | null;
   usage: Usage | null;
 }
 

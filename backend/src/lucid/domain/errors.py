@@ -54,6 +54,14 @@ class ProviderStreamError(ProviderError):
     default_message = "The model response ended unexpectedly."
 
 
+class EmptyProviderResponse(ProviderError):
+    """The provider finished without producing any text."""
+
+    code = "empty_response"
+    retryable = True
+    default_message = "The model returned no text. Try again."
+
+
 class ContextTooLarge(ProviderError):
     code = "context_too_large"
     retryable = False

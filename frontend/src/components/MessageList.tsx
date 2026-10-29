@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { Message } from "../api/types";
+import type { AttemptSummary, Message } from "../api/types";
 import type { ChatError } from "../hooks/useChat";
 import { Markdown } from "./Markdown";
 
@@ -24,6 +24,49 @@ function UsageLine({ message }: { message: Message }) {
   return (
     <span className="font-mono text-[11px] text-text-muted">
       {usage.input_tokens ?? "?"} in &middot; {usage.output_tokens ?? "?"} out
+    </span>
+  );
+}
+
+/** Explain why a turn has no answer, without leaking provider internals. */
+function describeFailure(attempt: AttemptSummary): string {
+  switch (attempt.error_code) {
+    case "interrupted":
+      return "The response was interrupted before any text arrived.";
+    case "stopped_by_user":
+      return "You stopped this response.";
+    case "process_restart":
+    case "server_shutdown":
+      return "The server restarted before the answer finished.";
+    case "empty_response":
+      return "The model returned no text.";
+    case "provider_timeout":
+      return "The model did not respond in time.";
+    case "provider_rate_limited":
+      return "The model was rate limited.";
+    case "provider_unavailable":
+      return "The model was temporarily unavailable.";
+    case "provider_invalid_request":
+      return "The model rejected this request.";
+    case "provider_safety_blocked":
+      return "The model declined to answer.";
+    default:
+      return attempt.error_message ?? "The response failed.";
+  }
+}
+
+function WaitingIndicator() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setSeconds((value) => value + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <span className="text-[13px] text-text-secondary">
+      Waiting for the model{seconds > 0 ? ` (${seconds}s)` : ""}
+      <span className="animate-pulse">...</span>
     </span>
   );
 }
@@ -72,7 +115,7 @@ export function MessageList({
       className="flex-1 overflow-y-auto px-4 py-6 sm:px-8"
     >
       <div className="mx-auto w-full max-w-3xl space-y-7">
-        {messages.map((message) =>
+        {messages.map((message, index) =>
           message.role === "user" ? (
             <div key={message.id} className="flex flex-col items-end">
               <span className="mb-1.5 text-[11px] text-text-muted">
@@ -82,14 +125,21 @@ export function MessageList({
                 {message.content}
               </div>
               {message.attempt?.retryable ? (
-                <button
-                  type="button"
-                  onClick={() => onRetry(message.id)}
-                  disabled={streaming}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-surface-border-subtle px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary disabled:opacity-50"
-                >
-                  Retry
-                </button>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {messages[index + 1]?.role === "assistant" ? null : (
+                    <span className="text-[12px] text-text-muted">
+                      {describeFailure(message.attempt)}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onRetry(message.id)}
+                    disabled={streaming}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border-subtle px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : null}
             </div>
           ) : (
@@ -134,10 +184,7 @@ export function MessageList({
                   <span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-amber-accent align-[-0.15em]" />
                 </>
               ) : (
-                <span className="text-[13px] text-text-secondary">
-                  Waiting for the model
-                  <span className="animate-pulse">...</span>
-                </span>
+                <WaitingIndicator />
               )}
             </div>
           </article>

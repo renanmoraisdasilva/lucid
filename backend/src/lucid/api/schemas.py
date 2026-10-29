@@ -38,6 +38,7 @@ class AttemptSummary(BaseModel):
     attempt_no: int
     retryable: bool = False
     error_code: str | None = None
+    error_message: str | None = None
     usage: UsageOut | None = None
 
 

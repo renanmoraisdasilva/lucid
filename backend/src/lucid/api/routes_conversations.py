@@ -147,5 +147,6 @@ def _to_attempt_summary(
         attempt_no=attempt.attempt_no,
         retryable=retryable,
         error_code=attempt.error_code,
+        error_message=attempt.error_message,
         usage=usage,
     )
