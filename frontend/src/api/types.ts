@@ -1,3 +1,15 @@
+export interface ModelsResponse {
+  items: ModelOption[];
+  default_id: string;
+}
+
+export interface ModelOption {
+  id: string;
+  label: string;
+  provider: string;
+  model: string;
+}
+
 export type AttemptStatus = "in_progress" | "completed" | "failed" | "interrupted";
 
 export type Role = "user" | "assistant";

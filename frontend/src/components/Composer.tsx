@@ -1,15 +1,28 @@
 import { useState } from "react";
 
+import type { ModelOption } from "../api/types";
+
 interface ComposerProps {
   streaming: boolean;
   stopping: boolean;
+  models: ModelOption[];
+  modelId: string | null;
+  onSelectModel: (id: string) => void;
   onSend: (content: string) => void;
   onStop: () => void;
 }
 
 const MAX_LENGTH = 16_000;
 
-export function Composer({ streaming, stopping, onSend, onStop }: ComposerProps) {
+export function Composer({
+  streaming,
+  stopping,
+  models,
+  modelId,
+  onSelectModel,
+  onSend,
+  onStop,
+}: ComposerProps) {
   const [draft, setDraft] = useState("");
 
   function submit() {
@@ -51,18 +64,45 @@ export function Composer({ streaming, stopping, onSend, onStop }: ComposerProps)
           />
 
           <div className="flex items-center justify-between gap-2 pt-1">
-            {streaming ? (
-              <span className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-accent" />
-                {stopping ? "Stopping..." : "Generating response"}
-              </span>
-            ) : (
-              <span className="font-mono text-[11px] text-text-muted">
-                {draft.length > MAX_LENGTH - 1_000
-                  ? `${draft.length} / ${MAX_LENGTH}`
-                  : "Enter to send \u00b7 Shift + Enter for new line"}
-              </span>
-            )}
+            <div className="flex min-w-0 items-center gap-2">
+              {models.length > 0 ? (
+                <>
+                  <label htmlFor="model-picker" className="sr-only">
+                    Model
+                  </label>
+                  <select
+                    id="model-picker"
+                    value={modelId ?? ""}
+                    disabled={streaming}
+                    onChange={(event) => onSelectModel(event.target.value)}
+                    className="max-w-[9rem] truncate rounded-full border border-surface-border-subtle bg-transparent px-2 py-1 font-mono text-[11px] text-text-secondary transition-colors hover:border-amber-border focus:border-amber-border focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-none"
+                  >
+                    {models.map((option) => (
+                      <option
+                        key={option.id}
+                        value={option.id}
+                        className="bg-surface-elevated text-text-primary"
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : null}
+
+              {streaming ? (
+                <span className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-accent" />
+                  {stopping ? "Stopping..." : "Generating response"}
+                </span>
+              ) : (
+                <span className="truncate font-mono text-[11px] text-text-muted">
+                  {draft.length > MAX_LENGTH - 1_000
+                    ? `${draft.length} / ${MAX_LENGTH}`
+                    : "Enter to send \u00b7 Shift + Enter for new line"}
+                </span>
+              )}
+            </div>
 
             {streaming ? (
               <button

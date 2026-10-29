@@ -90,14 +90,45 @@ function metaFrame(): string {
   })}\n\n`;
 }
 
-function installFetchMock(): void {
+const GROQ_MODEL_ID = "openai:openai/gpt-oss-120b";
+const GEMINI_MODEL_ID = "gemini:gemini-3.6-flash";
+
+function modelsResponse(): Response {
+  return jsonResponse({
+    items: [
+      {
+        id: GROQ_MODEL_ID,
+        label: "GPT-OSS 120B",
+        provider: "openai",
+        model: "openai/gpt-oss-120b",
+      },
+      {
+        id: GEMINI_MODEL_ID,
+        label: "Gemini 3.6 Flash",
+        provider: "gemini",
+        model: "gemini-3.6-flash",
+      },
+    ],
+    default_id: GROQ_MODEL_ID,
+  });
+}
+
+function chatBodies(init?: RequestInit): Record<string, unknown> {
+  return JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+}
+
+function installFetchMock(sent: Record<string, unknown>[] = []): void {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = init?.method ?? "GET";
 
+      if (url === "/api/models") {
+        return modelsResponse();
+      }
       if (url === "/api/chat") {
+        sent.push(chatBodies(init));
         return sseResponse([
           metaFrame(),
           'event: delta\ndata: {"text":"## Hello!\\n\\nHow can I help?"}\n\n',
@@ -132,6 +163,7 @@ function renderApp() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
 
 describe("App", () => {
@@ -158,12 +190,34 @@ describe("App", () => {
     });
   });
 
+  it("sends the selected model with the message", async () => {
+    const sent: Record<string, unknown>[] = [];
+    installFetchMock(sent);
+    const user = userEvent.setup();
+
+    renderApp();
+
+    const picker = await screen.findByLabelText("Model");
+    expect(picker).toHaveValue(GROQ_MODEL_ID);
+
+    await user.selectOptions(picker, GEMINI_MODEL_ID);
+    await user.type(screen.getByLabelText("Message Lucid"), "Hello Lucid{Enter}");
+
+    await waitFor(() => {
+      expect(sent).toHaveLength(1);
+    });
+    expect(sent[0]).toMatchObject({ content: "Hello Lucid", model_id: GEMINI_MODEL_ID });
+  });
+
   it("disables the composer while a response is streaming", async () => {
     const gate = { close: () => {} };
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === "string" ? input : input.toString();
+        if (url === "/api/models") {
+          return modelsResponse();
+        }
         if (url === "/api/chat") {
           const encoder = new TextEncoder();
           const body = new ReadableStream<Uint8Array>({
@@ -195,6 +249,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("button", { name: "Stop" })).toBeInTheDocument();
     expect(screen.getByLabelText("Message Lucid")).toBeDisabled();
+    expect(screen.getByLabelText("Model")).toBeDisabled();
 
     gate.close();
     await waitFor(() => {

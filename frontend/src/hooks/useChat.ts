@@ -5,13 +5,16 @@ import {
   ApiError,
   deleteConversation,
   getConversation,
+  getModels,
   listConversations,
   stopGeneration,
   streamChat,
   streamRetry,
 } from "../api/client";
-import type { Message, StreamEvent } from "../api/types";
+import type { Message, ModelOption, StreamEvent } from "../api/types";
 import { groupConversations, type ConversationGroup } from "../lib/grouping";
+
+const MODEL_STORAGE_KEY = "lucid.model";
 
 export interface ChatError {
   code: string;
@@ -32,6 +35,9 @@ export interface ChatController {
   stopping: boolean;
   hasMore: boolean;
   loadingMore: boolean;
+  models: ModelOption[];
+  modelId: string | null;
+  selectModel: (id: string) => void;
   loadMore: () => void;
   send: (content: string) => Promise<void>;
   retry: (messageId: string) => Promise<void>;
@@ -83,6 +89,27 @@ export function useChat(): ChatController {
     [conversationsQuery.data],
   );
   const groups = useMemo(() => groupConversations(conversations), [conversations]);
+
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: ({ signal }) => getModels(signal),
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  const [modelId, setModelId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : window.localStorage.getItem(MODEL_STORAGE_KEY),
+  );
+
+  const models = useMemo<ModelOption[]>(() => modelsQuery.data?.items ?? [], [modelsQuery.data]);
+  const defaultModelId = modelsQuery.data?.default_id ?? null;
+  const effectiveModelId =
+    modelId !== null && models.some((option) => option.id === modelId) ? modelId : defaultModelId;
+
+  const selectModel = useCallback((id: string) => {
+    setModelId(id);
+    window.localStorage.setItem(MODEL_STORAGE_KEY, id);
+  }, []);
 
   const messages = useMemo(() => {
     const persisted = conversationQuery.data?.messages ?? [];
@@ -188,6 +215,7 @@ export function useChat(): ChatController {
         const events = await streamChat({
           conversationId: conversationIdRef.current,
           content,
+          modelId: effectiveModelId,
           signal: controller.signal,
         });
         await runStream(events, content);
@@ -203,7 +231,7 @@ export function useChat(): ChatController {
         }
       }
     },
-    [runStream, streaming],
+    [effectiveModelId, runStream, streaming],
   );
 
   const retry = useCallback(
@@ -218,6 +246,7 @@ export function useChat(): ChatController {
         const events = await streamRetry({
           conversationId: id,
           messageId,
+          modelId: effectiveModelId,
           signal: controller.signal,
         });
         await runStream(events, null);
@@ -233,7 +262,7 @@ export function useChat(): ChatController {
         }
       }
     },
-    [runStream, streaming],
+    [effectiveModelId, runStream, streaming],
   );
 
   const stop = useCallback(async () => {
@@ -301,6 +330,9 @@ export function useChat(): ChatController {
     stopping,
     hasMore: conversationsQuery.hasNextPage,
     loadingMore: conversationsQuery.isFetchingNextPage,
+    models,
+    modelId: effectiveModelId,
+    selectModel,
     loadMore,
     send,
     retry,
