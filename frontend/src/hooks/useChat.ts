@@ -62,6 +62,10 @@ export function useChat(): ChatController {
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    // StrictMode runs mount -> cleanup -> mount in development, so the flag has
+    // to be restored here; otherwise this instance believes it is unmounted for
+    // the rest of the session and never clears the streaming state.
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();

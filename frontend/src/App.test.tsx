@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -150,15 +151,16 @@ function installFetchMock(sent: Record<string, unknown>[] = []): void {
   );
 }
 
-function renderApp() {
+function renderApp({ strict = false }: { strict?: boolean } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
-  return render(
+  const tree = (
     <QueryClientProvider client={client}>
       <App />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 afterEach(() => {
@@ -207,6 +209,22 @@ describe("App", () => {
       expect(sent).toHaveLength(1);
     });
     expect(sent[0]).toMatchObject({ content: "Hello Lucid", model_id: GEMINI_MODEL_ID });
+  });
+
+  it("returns to idle after the stream ends when StrictMode remounts effects", async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderApp({ strict: true });
+
+    await user.type(screen.getByLabelText("Message Lucid"), "Hello Lucid{Enter}");
+
+    expect(await screen.findByRole("heading", { name: "Hello!" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Message Lucid")).not.toBeDisabled();
+    });
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByLabelText("Model")).not.toBeDisabled();
   });
 
   it("disables the composer while a response is streaming", async () => {
