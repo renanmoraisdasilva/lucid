@@ -248,17 +248,24 @@ frontend/src/    React application
 docs/            specs, plan, ADRs
 ```
 
-## Repository and publishing
+## Repository
 
-The repository is named `lucid`. Nothing is published yet, so CI has never run.
-To create the GitHub remote:
+Published at **https://github.com/renanmoraisdasilva/lucid** (private). Every push
+to `main` runs CI:
 
-```powershell
-gh repo create lucid --private --source . --remote origin --push
-```
+| Job | Steps |
+|---|---|
+| Backend | ruff check, ruff format --check, pyright, `alembic upgrade head` against a Postgres service, pytest |
+| Frontend | npm ci, eslint, prettier --check, tsc, vitest, vite build |
 
-Flip it to public when the MVP is demonstrable and the README, mockups, and
-architecture notes are in place.
+The Playwright suite is not part of CI yet; run it locally with
+`docker compose -f docker-compose.yml -f docker-compose.e2e.yml --profile full up -d --build`
+and `npm run e2e`.
+
+Flip the repository to public once the MVP is demonstrable and the README,
+mockups, and architecture notes are in place. The local directory can be renamed
+to `lucid` at any time — the remote name comes from the GitHub repository, not the
+folder.
 
 ## Known limitations (by design, for now)
 
