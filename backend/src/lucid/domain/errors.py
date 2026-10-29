@@ -68,5 +68,13 @@ class ContextTooLarge(ProviderError):
     default_message = "This conversation is too long for the model."
 
 
+class FirstTokenTimeout(ProviderTimeout):
+    """No text arrived before the first-token deadline.
+
+    Deliberately excluded from automatic retries: the provider is queued, so
+    retrying only multiplies the wait. The manual Retry action still works.
+    """
+
+
 class ConfigurationError(RuntimeError):
     """Invalid or missing configuration detected at startup."""

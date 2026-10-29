@@ -1,6 +1,7 @@
 """Streaming service behaviour: incremental delivery, stop, disconnect."""
 
 import asyncio
+import time
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import suppress
@@ -18,6 +19,7 @@ from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus
 from lucid.domain.errors import ProviderUnavailable
+from lucid.domain.provider import GenerationRequest, ProviderEvent, TextDelta
 from lucid.persistence.tables import GenerationAttempt
 from lucid.providers.fake import FakeProvider, FakeScript
 
@@ -360,6 +362,68 @@ async def test_finishes_even_if_the_provider_keeps_its_stream_open(
     assert [name for name, _ in events] == ["meta", "delta", "usage", "done"]
     attempt = await _attempt(session_factory, prepared.attempt_id)
     assert attempt.status == AttemptStatus.COMPLETED.value
+
+
+class StubbornProvider:
+    """Ignores the first cancellation, like the SDK's internal retry loop."""
+
+    name = "stubborn"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def stream(self, request: GenerationRequest) -> AsyncGenerator[ProviderEvent, None]:
+        self.calls += 1
+        try:
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            try:
+                await asyncio.sleep(0.2)
+            except asyncio.CancelledError:
+                raise
+        yield TextDelta(text="never reached")  # pragma: no cover
+
+
+async def test_deadline_holds_when_the_provider_ignores_cancellation(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Regression: SDK retries swallowed cancellation and the wait hit 411s."""
+    provider = StubbornProvider()
+    registry = GenerationRegistry()
+    prepared = await prepare_message(
+        session,
+        content="stubborn",
+        conversation_id=None,
+        provider_name=provider.name,
+        model="fake-model",
+    )
+
+    started = time.perf_counter()
+    events = await asyncio.wait_for(
+        _drain(
+            stream_generation(
+                prepared,
+                session_factory=session_factory,
+                provider=provider,
+                system_prompt="test",
+                model="fake-model",
+                max_output_tokens=64,
+                registry=registry,
+                first_token_timeout=0.05,
+            )
+        ),
+        timeout=3.0,
+    )
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 2.0
+    assert events[-1][0] == "error"
+    assert events[-1][1]["code"] == "provider_timeout"
+    assert provider.calls == 1
+
+    attempt = await _attempt(session_factory, prepared.attempt_id)
+    assert attempt.status == AttemptStatus.FAILED.value
 
 
 async def test_registry_is_empty_after_each_stream(

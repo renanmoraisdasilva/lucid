@@ -163,7 +163,13 @@ class GeminiProvider:
         self._thinking_level = thinking_level
         self._client = genai.Client(
             api_key=api_key,
-            http_options=types.HttpOptions(timeout=int(timeout_seconds * 1000)),
+            http_options=types.HttpOptions(
+                timeout=int(timeout_seconds * 1000),
+                # No hidden retries: the SDK's default retry loop swallowed our
+                # cancellation and stretched a 50s deadline past 400s. Retry
+                # policy belongs to the application (ADR-005).
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
         )
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[ProviderEvent]:

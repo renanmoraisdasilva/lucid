@@ -26,7 +26,11 @@ from lucid.application.context import ContextBudget, select_history
 from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus, Role
-from lucid.domain.errors import EmptyProviderResponse, ProviderError, ProviderTimeout
+from lucid.domain.errors import (
+    EmptyProviderResponse,
+    FirstTokenTimeout,
+    ProviderError,
+)
 from lucid.domain.provider import (
     ChatProvider,
     GenerationRequest,
@@ -374,24 +378,23 @@ async def _stream_with_retries(
 
     while True:
         try:
-            timeout = asyncio.timeout(first_token_timeout)
-            async with timeout:
-                async for event in provider.stream(request):
-                    if isinstance(event, TextDelta) and not emitted:
-                        emitted = True
-                        # Output has started; the first-token budget no longer applies.
-                        timeout.reschedule(None)
-                    yield event
-                    if isinstance(event, StreamCompleted):
-                        # The provider may keep its stream open after the terminal
-                        # event; stop here instead of waiting for it to end.
-                        return
+            async for event in _bounded_stream(
+                provider,
+                request,
+                deadline=None if emitted else first_token_timeout,
+            ):
+                if isinstance(event, TextDelta):
+                    emitted = True
+                yield event
+                if isinstance(event, StreamCompleted):
+                    # The provider may keep its stream open after the terminal
+                    # event; stop here instead of waiting for it to end.
+                    return
             return
-        except TimeoutError as error:
-            # Deliberately not auto-retried: the provider is queued, so retrying
-            # would only multiply the wait (up to 3 x 25s). The user gets a
-            # retryable error and a Retry action instead.
-            raise ProviderTimeout(detail=f"no text within {first_token_timeout}s") from error
+        except FirstTokenTimeout:
+            # Never auto-retried: the provider is queued, so retrying only
+            # multiplies the wait. The user still gets a retry action.
+            raise
         except ProviderError as error:
             if not policy.is_retryable(error, has_output=emitted):
                 raise
@@ -411,6 +414,70 @@ async def _stream_with_retries(
             retry_index += 1
             if await _sleep_or_stop(stop_event, delay):
                 return
+
+
+class _EndOfStream:
+    """Queue sentinel marking a normally finished provider stream."""
+
+
+_END_OF_STREAM = _EndOfStream()
+
+
+async def _bounded_stream(
+    provider: ChatProvider,
+    request: GenerationRequest,
+    *,
+    deadline: float | None,
+) -> AsyncGenerator[ProviderEvent, None]:
+    """Yield provider events, enforcing a hard deadline on the first event.
+
+    The provider runs in its own task so the deadline holds even when the SDK
+    ignores cancellation while retrying internally. That was observed as a
+    seven-minute wait that outlived ``asyncio.timeout``.
+    """
+    queue: asyncio.Queue[ProviderEvent | BaseException | _EndOfStream] = asyncio.Queue()
+    producer = asyncio.create_task(_pump_stream(provider, request, queue))
+    emitted = False
+
+    try:
+        while True:
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=None if emitted else deadline)
+            except TimeoutError as error:
+                raise FirstTokenTimeout(detail=f"no provider event within {deadline}s") from error
+
+            if isinstance(item, _EndOfStream):
+                return
+            if isinstance(item, BaseException):
+                raise item
+            emitted = True
+            yield item
+    finally:
+        if not producer.done():
+            # Do not await: a stuck SDK call must not block the response.
+            producer.cancel()
+            producer.add_done_callback(_discard_task_result)
+
+
+async def _pump_stream(
+    provider: ChatProvider,
+    request: GenerationRequest,
+    queue: asyncio.Queue[ProviderEvent | BaseException | _EndOfStream],
+) -> None:
+    """Forward provider events into a queue so the consumer can time out."""
+    try:
+        async for event in provider.stream(request):
+            queue.put_nowait(event)
+        queue.put_nowait(_END_OF_STREAM)
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        queue.put_nowait(error)
+
+
+def _discard_task_result(task: asyncio.Task[object]) -> None:
+    with suppress(asyncio.CancelledError, Exception):
+        task.exception()
 
 
 async def _sleep_or_stop(stop_event: asyncio.Event, delay: float) -> bool:
