@@ -813,7 +813,10 @@ docker compose --profile full up --build
 ```
 
 Report exactly what ran and what did not. Never claim a check passed without
-running it.
+running it. The code health gates (coverage, file and function size, complexity,
+maintainability index) are defined in
+[`code-health-budget.md`](./code-health-budget.md); run its commands alongside the
+ones above.
 
 ---
 
@@ -849,7 +852,8 @@ Ordered by expected value for the roadmap, not committed:
 6. Deployment (container images, managed Postgres, secrets) and Terraform.
 7. Second provider adapter as a portability exercise.
 8. Small evaluation harness for answer quality (prepares the RAG project).
-9. Usage and cost dashboard.
+9. Usage and cost dashboard — planned in
+   [`dashboard-implementation-plan.md`](./dashboard-implementation-plan.md).
 10. Rate limiting and request quotas for a public deployment.
 
 ---
@@ -865,6 +869,8 @@ Adapted from roadmap §8. A task is done when the applicable boxes hold:
 - [ ] Automated tests cover the behaviour, including at least one failure case
 - [ ] `ruff check`, `ruff format --check`, `pyright`, `pytest` pass (backend)
 - [ ] `npm run lint`, `npm run typecheck`, `npm test` pass (frontend)
+- [ ] Code health budget satisfied and the milestone health report recorded
+      (see [`code-health-budget.md`](./code-health-budget.md))
 - [ ] No new dependency without a stated reason in the README table
 - [ ] Docs/ADR/spec updated if a decision changed
 - [ ] The change can be explained in an interview: what, why, alternatives, failure modes
