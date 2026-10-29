@@ -27,6 +27,7 @@ class FakeScript:
     fail_after_first_token: Exception | None = None
     delay_seconds: float = 0.0
     finish_reason: str = "stop"
+    hang_after_completion: bool = False
 
 
 class FakeProvider:
@@ -66,3 +67,7 @@ class FakeProvider:
             yield TextDelta(text=delta)
 
         yield StreamCompleted(usage=script.usage, finish_reason=script.finish_reason)
+
+        if script.hang_after_completion:
+            # Simulates an SDK stream that stays open after its terminal event.
+            await asyncio.Event().wait()

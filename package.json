@@ -4,8 +4,8 @@
   "description": "Lucid development entry points: API (uvicorn, reload) + web (Vite).",
   "scripts": {
     "dev": "npm run dev:db && npm run dev:prepare && concurrently --kill-others --names api,web --prefix-colors yellow,cyan \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:prepare": "cd backend && uv sync && uv run alembic upgrade head",
-    "dev:api": "cd backend && uv run uvicorn lucid.main:app --reload --port 8000",
+    "dev:prepare": "node tools/uv.mjs sync && node tools/uv.mjs run alembic upgrade head",
+    "dev:api": "node tools/uv.mjs run uvicorn lucid.main:app --reload --port 8000",
     "dev:web": "npm --prefix frontend run dev",
     "dev:db": "docker compose up -d db",
     "dev:stack": "docker compose --profile full up -d --build",

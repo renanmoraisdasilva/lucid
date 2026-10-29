@@ -9,7 +9,6 @@ Verified against google-genai 2.34.0 on 2026-10-29; see
 """
 
 from collections.abc import AsyncIterator, Mapping
-from contextlib import suppress
 from typing import Any, cast
 
 from google import genai
@@ -32,6 +31,7 @@ from lucid.domain.provider import (
     TextDelta,
     Usage,
 )
+from lucid.providers.streams import close_stream
 
 _STEP_TYPE: dict[Role, str] = {
     Role.USER: "user_input",
@@ -197,10 +197,9 @@ class GeminiProvider:
         except Exception as error:
             raise classify_exception(error) from error
         finally:
-            # Early exit (cancellation) leaves the HTTP stream open otherwise.
-            # The SDK's close() is a coroutine; CancelError paths are exercised in M4.
-            with suppress(Exception):
-                await active_stream.close()
+            # Bounded: an SDK stream can keep the connection open after its final
+            # event, and an unbounded close would stall the finished response.
+            await close_stream(active_stream)
 
 
 def _from_status(status: int, detail: str) -> ProviderError:

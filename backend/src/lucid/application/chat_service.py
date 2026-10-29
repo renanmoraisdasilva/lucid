@@ -32,6 +32,7 @@ from lucid.domain.provider import (
     GenerationRequest,
     ProviderEvent,
     ProviderMessage,
+    StreamCompleted,
     TextDelta,
     Usage,
 )
@@ -381,6 +382,10 @@ async def _stream_with_retries(
                         # Output has started; the first-token budget no longer applies.
                         timeout.reschedule(None)
                     yield event
+                    if isinstance(event, StreamCompleted):
+                        # The provider may keep its stream open after the terminal
+                        # event; stop here instead of waiting for it to end.
+                        return
             return
         except TimeoutError as error:
             # Deliberately not auto-retried: the provider is queued, so retrying

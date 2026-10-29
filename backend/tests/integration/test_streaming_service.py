@@ -186,22 +186,30 @@ async def test_cancelled_task_still_persists_the_interruption(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     provider = FakeProvider(
-        FakeScript(deltas=("a ", "b ", "c ", "d ", "e ", "f"), delay_seconds=0.02)
+        FakeScript(deltas=tuple(f"chunk{i} " for i in range(20)), delay_seconds=0.02)
     )
     registry = GenerationRegistry()
     prepared = await _prepare(session, "cancel me", provider)
     events = _stream(prepared, provider, session_factory, registry)
 
+    seen: list[GenerationEvent] = []
+
     async def consume() -> None:
-        async for _ in events:
-            pass
+        async for event in events:
+            seen.append(event)
 
     task = asyncio.create_task(consume())
-    await asyncio.sleep(0.06)
+    # Cancel once the stream is demonstrably in progress, so the test does not
+    # depend on wall-clock timing under load.
+    for _ in range(400):
+        if len(seen) >= 2:
+            break
+        await asyncio.sleep(0.005)
     task.cancel()
     with suppress(asyncio.CancelledError):
         await task
 
+    assert len(seen) >= 2
     attempt = await _attempt(session_factory, prepared.attempt_id)
     assert attempt.status == AttemptStatus.INTERRUPTED.value
     assert attempt.assistant_message_id is not None
@@ -332,6 +340,24 @@ async def test_first_token_deadline_does_not_fire_after_text_arrives(
     )
 
     assert [name for name, _ in events][-1] == "done"
+    attempt = await _attempt(session_factory, prepared.attempt_id)
+    assert attempt.status == AttemptStatus.COMPLETED.value
+
+
+async def test_finishes_even_if_the_provider_keeps_its_stream_open(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Regression: a stream open after completion left the UI 'streaming' forever."""
+    provider = FakeProvider(FakeScript(deltas=("hello",), hang_after_completion=True))
+    registry = GenerationRegistry()
+    prepared = await _prepare(session, "stay open", provider)
+
+    events = await asyncio.wait_for(
+        _drain(_stream(prepared, provider, session_factory, registry)), timeout=2.0
+    )
+
+    assert [name for name, _ in events] == ["meta", "delta", "usage", "done"]
     attempt = await _attempt(session_factory, prepared.attempt_id)
     assert attempt.status == AttemptStatus.COMPLETED.value
 
