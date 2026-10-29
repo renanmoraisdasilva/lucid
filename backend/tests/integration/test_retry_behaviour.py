@@ -6,8 +6,9 @@ from collections.abc import AsyncGenerator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from lucid.application.chat_service import (
+from lucid.application.chat import (
     GenerationEvent,
+    GenerationOptions,
     PreparedGeneration,
     prepare_message,
     stream_generation,
@@ -56,12 +57,14 @@ def _stream(
         prepared,
         session_factory=session_factory,
         provider=provider,
-        system_prompt="test",
-        model="fake-model",
-        max_output_tokens=64,
         registry=registry,
-        context_budget=budget,
-        retry_policy=policy,
+        options=GenerationOptions(
+            system_prompt="test",
+            model="fake-model",
+            max_output_tokens=64,
+            context_budget=budget,
+            retry_policy=policy,
+        ),
     )
 
 
@@ -117,6 +120,9 @@ async def test_retries_transient_failures_then_succeeds(
 
     attempt = await _attempt(session_factory, prepared.attempt_id)
     assert attempt.status == AttemptStatus.COMPLETED.value
+    assert attempt.retry_count == 2
+    assert attempt.http_status == 200
+    assert attempt.first_token_at is not None
     assert await _message_count(session_factory, prepared.conversation_id) == 2
 
 
@@ -143,6 +149,8 @@ async def test_exhausted_retries_fail_the_attempt(
     attempt = await _attempt(session_factory, prepared.attempt_id)
     assert attempt.status == AttemptStatus.FAILED.value
     assert attempt.error_code == "provider_rate_limited"
+    assert attempt.retry_count == 2
+    assert attempt.http_status is None
 
 
 async def test_does_not_retry_after_text_has_streamed(

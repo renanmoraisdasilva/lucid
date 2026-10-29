@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.domain.enums import AttemptStatus, Role
+from lucid.domain.outcome import AttemptOutcome
 from lucid.persistence.reconciliation import reconcile_stale_attempts
 from lucid.persistence.repositories import (
     AttemptRepository,
@@ -30,7 +31,7 @@ async def _seed(
         model="fake-model",
     )
     if status is not AttemptStatus.IN_PROGRESS:
-        await AttemptRepository(session).finalize(attempt.id, status=status)
+        await AttemptRepository(session).finalize(attempt.id, AttemptOutcome(status=status))
     await session.commit()
     return attempt
 

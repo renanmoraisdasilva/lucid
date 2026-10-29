@@ -9,8 +9,9 @@ from contextlib import suppress
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from lucid.application.chat_service import (
+from lucid.application.chat import (
     GenerationEvent,
+    GenerationOptions,
     PreparedGeneration,
     prepare_message,
     stream_generation,
@@ -20,7 +21,7 @@ from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus
 from lucid.domain.errors import ProviderRateLimited, ProviderUnavailable
-from lucid.domain.provider import GenerationRequest, ProviderEvent, TextDelta
+from lucid.domain.provider import ChatProvider, GenerationRequest, ProviderEvent, TextDelta
 from lucid.persistence.tables import GenerationAttempt
 from lucid.providers.fake import FakeProvider, FakeScript
 
@@ -39,7 +40,7 @@ async def _prepare(session: AsyncSession, text: str, provider: FakeProvider) -> 
 
 def _stream(
     prepared: PreparedGeneration,
-    provider: FakeProvider,
+    provider: ChatProvider,
     session_factory: async_sessionmaker[AsyncSession],
     registry: GenerationRegistry,
     *,
@@ -51,13 +52,15 @@ def _stream(
         prepared,
         session_factory=session_factory,
         provider=provider,
-        system_prompt="test",
-        model="fake-model",
-        max_output_tokens=64,
         registry=registry,
-        retry_policy=policy,
-        first_token_timeout=first_token_timeout,
-        cooldown=cooldown,
+        options=GenerationOptions(
+            system_prompt="test",
+            model="fake-model",
+            max_output_tokens=64,
+            retry_policy=policy or RetryPolicy(),
+            first_token_timeout=first_token_timeout,
+            cooldown=cooldown,
+        ),
     )
 
 
@@ -114,6 +117,11 @@ async def test_success_persists_one_assistant_message_and_one_terminal_event(
     assert attempt.status == AttemptStatus.COMPLETED.value
     assert attempt.assistant_message_id is not None
     assert attempt.total_tokens == 18
+    assert attempt.first_token_at is not None
+    assert attempt.first_token_at >= attempt.started_at
+    assert attempt.http_status == 200
+    assert attempt.retry_count == 0
+    assert attempt.context_tokens is not None and attempt.context_tokens > 0
 
 
 async def test_stop_finalizes_as_interrupted_and_keeps_partial_text(
@@ -144,6 +152,8 @@ async def test_stop_finalizes_as_interrupted_and_keeps_partial_text(
     assert attempt.status == AttemptStatus.INTERRUPTED.value
     assert attempt.error_code == "stopped_by_user"
     assert attempt.assistant_message_id is not None
+    assert attempt.first_token_at is not None
+    assert attempt.http_status == 200
 
 
 async def test_stop_before_first_token_leaves_no_assistant_message(
@@ -244,6 +254,9 @@ async def test_provider_failure_after_partial_text_keeps_the_message(
     assert attempt.status == AttemptStatus.FAILED.value
     assert attempt.error_code == "provider_unavailable"
     assert attempt.assistant_message_id is not None
+    assert attempt.first_token_at is not None
+    assert attempt.http_status == 200
+    assert attempt.retry_count == 0
 
 
 async def test_empty_completion_is_a_visible_retryable_failure(
@@ -405,14 +418,11 @@ async def test_deadline_holds_when_the_provider_ignores_cancellation(
     started = time.perf_counter()
     events = await asyncio.wait_for(
         _drain(
-            stream_generation(
+            _stream(
                 prepared,
-                session_factory=session_factory,
-                provider=provider,
-                system_prompt="test",
-                model="fake-model",
-                max_output_tokens=64,
-                registry=registry,
+                provider,
+                session_factory,
+                registry,
                 first_token_timeout=0.05,
             )
         ),
@@ -434,7 +444,9 @@ async def test_rate_limit_reports_the_wait_and_is_not_auto_retried(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     provider = FakeProvider(
-        FakeScript(fail_before_first_token=ProviderRateLimited(retry_after_seconds=21.0))
+        FakeScript(
+            fail_before_first_token=ProviderRateLimited(retry_after_seconds=21.0, http_status=429)
+        )
     )
     registry = GenerationRegistry()
     cooldown = RateLimitCooldown()
@@ -457,6 +469,9 @@ async def test_rate_limit_reports_the_wait_and_is_not_auto_retried(
     assert error["retry_after_seconds"] == 21.0
     assert len(provider.requests) == 1, "a long retry hint must not be retried immediately"
     assert cooldown.remaining() > 15
+    attempt = await _attempt(session_factory, prepared.attempt_id)
+    assert attempt.http_status == 429
+    assert attempt.retry_count == 0
 
 
 async def test_cooldown_prevents_calling_a_rate_limited_provider_again(

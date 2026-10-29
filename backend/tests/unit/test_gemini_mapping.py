@@ -168,6 +168,7 @@ def test_http_status_maps_to_domain_errors(status: int, expected: type[Exception
 
     assert isinstance(translated, expected)
     assert translated.detail == "provider said no"
+    assert translated.http_status == status
 
 
 def test_rate_limit_message_retry_hint_is_parsed() -> None:

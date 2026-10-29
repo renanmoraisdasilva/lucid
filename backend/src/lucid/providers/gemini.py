@@ -248,14 +248,15 @@ def _from_status(status: int, detail: str) -> ProviderError:
             ),
             detail=detail,
             retry_after_seconds=_retry_after_seconds(detail),
+            http_status=status,
         )
     if status in (408, 504):
-        return ProviderTimeout(detail=detail)
+        return ProviderTimeout(detail=detail, http_status=status)
     if status >= 500:
-        return ProviderUnavailable(detail=detail)
+        return ProviderUnavailable(detail=detail, http_status=status)
     if 400 <= status < 500:
-        return ProviderInvalidRequest(detail=detail)
-    return ProviderUnavailable(detail=detail)
+        return ProviderInvalidRequest(detail=detail, http_status=status)
+    return ProviderUnavailable(detail=detail, http_status=status)
 
 
 _RETRY_HINT_PATTERNS: Final = (

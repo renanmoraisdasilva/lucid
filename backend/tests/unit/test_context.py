@@ -38,7 +38,7 @@ def test_estimates_four_characters_per_token() -> None:
 def test_keeps_everything_that_fits() -> None:
     history = [message(Role.USER, 100), message(Role.ASSISTANT, 100), message(Role.USER, 100)]
 
-    selected = select_history(history, system_prompt="sys", budget=budget())
+    selected = select_history(history, system_prompt="sys", budget=budget()).messages
 
     assert selected == history
 
@@ -52,7 +52,7 @@ def test_drops_the_oldest_messages_first() -> None:
         [oldest, middle, newest],
         system_prompt="sys",
         budget=budget(max_input_tokens=250, reserved_output_tokens=100),
-    )
+    ).messages
 
     assert selected == [newest]
 
@@ -60,7 +60,7 @@ def test_drops_the_oldest_messages_first() -> None:
 def test_drops_a_leading_assistant_turn() -> None:
     history = [message(Role.ASSISTANT, 20), message(Role.USER, 20)]
 
-    selected = select_history(history, system_prompt="sys", budget=budget())
+    selected = select_history(history, system_prompt="sys", budget=budget()).messages
 
     assert [item.role for item in selected] == [Role.USER]
 
@@ -74,7 +74,7 @@ def test_respects_the_message_cap() -> None:
         message(Role.USER, 20),
     ]
 
-    selected = select_history(history, system_prompt="sys", budget=budget(max_messages=3))
+    selected = select_history(history, system_prompt="sys", budget=budget(max_messages=3)).messages
 
     assert len(selected) == 3
     assert selected[-1] is history[-1]
@@ -125,10 +125,21 @@ def test_overhead_is_counted_per_message() -> None:
         history,
         system_prompt="",
         budget=budget(max_input_tokens=120, reserved_output_tokens=0),
-    )
+    ).messages
 
     assert len(selected) == 1
     assert MESSAGE_OVERHEAD_TOKENS == 4
+
+
+def test_reports_the_estimated_prompt_size() -> None:
+    selection = select_history(
+        [message(Role.USER, 100)],
+        system_prompt="sys",
+        budget=budget(),
+    )
+
+    expected = estimate_tokens("sys") + estimate_tokens("x" * 100) + MESSAGE_OVERHEAD_TOKENS
+    assert selection.estimated_tokens == expected
 
 
 def test_history_budget_excludes_reserved_output() -> None:

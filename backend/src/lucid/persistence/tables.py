@@ -62,6 +62,7 @@ class Message(Base):
         CheckConstraint("char_length(content) > 0", name="ck_messages_content_not_empty"),
         UniqueConstraint("conversation_id", "seq", name="uq_messages_seq"),
         Index("ix_messages_conversation_seq", "conversation_id", "seq"),
+        Index("ix_messages_created_at", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
@@ -88,9 +89,23 @@ class GenerationAttempt(Base):
             name="ck_attempts_status",
         ),
         CheckConstraint("attempt_no >= 1", name="ck_attempts_attempt_no"),
+        CheckConstraint(
+            "http_status IS NULL OR http_status BETWEEN 100 AND 599",
+            name="ck_attempts_http_status",
+        ),
+        CheckConstraint("retry_count >= 0", name="ck_attempts_retry_count"),
+        CheckConstraint(
+            "context_tokens IS NULL OR context_tokens >= 0",
+            name="ck_attempts_context_tokens",
+        ),
+        CheckConstraint(
+            "first_token_at IS NULL OR first_token_at >= started_at",
+            name="ck_attempts_first_token_after_start",
+        ),
         UniqueConstraint("user_message_id", "attempt_no", name="uq_attempts_attempt_no"),
         Index("ix_attempts_conversation", "conversation_id"),
         Index("ix_attempts_user_message", "user_message_id"),
+        Index("ix_attempts_started_at", "started_at"),
         Index(
             "uq_attempts_one_active_per_conversation",
             "conversation_id",
@@ -132,6 +147,12 @@ class GenerationAttempt(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_token_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retry_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    context_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 __all__ = ["Conversation", "GenerationAttempt", "Message"]
