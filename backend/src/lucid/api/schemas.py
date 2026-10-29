@@ -133,6 +133,8 @@ class OverviewOut(BaseModel):
     success_rate: float | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    average_input_tokens: int | None = None
+    average_output_tokens: int | None = None
     usage_partial: bool = False
     estimated_cost_usd: float | None = None
     pricing: PricingOut

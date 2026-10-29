@@ -101,6 +101,8 @@ export interface DashboardOverview {
   success_rate: number | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  average_input_tokens: number | null;
+  average_output_tokens: number | null;
   usage_partial: boolean;
   estimated_cost_usd: number | null;
   pricing: DashboardPricing;

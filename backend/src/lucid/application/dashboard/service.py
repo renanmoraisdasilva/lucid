@@ -47,6 +47,16 @@ def build_overview(counts: OverviewCounts, pricing: Pricing) -> Overview:
         input_tokens = counts.input_tokens if counts.input_samples > 0 else None
         output_tokens = counts.output_tokens if counts.output_samples > 0 else None
 
+    average_input = (
+        round(counts.input_tokens / counts.input_samples)
+        if counts.input_tokens is not None and counts.input_samples > 0
+        else None
+    )
+    average_output = (
+        round(counts.output_tokens / counts.output_samples)
+        if counts.output_tokens is not None and counts.output_samples > 0
+        else None
+    )
     estimate = pricing.estimate_usd(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -63,6 +73,8 @@ def build_overview(counts: OverviewCounts, pricing: Pricing) -> Overview:
         success_rate=success_rate,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        average_input_tokens=average_input,
+        average_output_tokens=average_output,
         usage_partial=counts.missing_usage > 0,
         estimated_cost_usd=float(estimate) if estimate is not None else None,
         pricing=PricingInfo(

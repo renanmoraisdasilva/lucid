@@ -132,6 +132,23 @@ def test_overview_cost_is_rounded_from_list_prices() -> None:
     assert overview.pricing.input_usd_per_million == 0.3
 
 
+def test_averages_use_only_attempts_with_usage() -> None:
+    overview = build_overview(
+        counts(
+            attempts=3,
+            completed=3,
+            input_tokens=300,
+            output_tokens=80,
+            input_samples=2,
+            output_samples=2,
+        ),
+        prices(),
+    )
+
+    assert overview.average_input_tokens == 150
+    assert overview.average_output_tokens == 40
+
+
 def test_overview_cost_is_unavailable_without_prices() -> None:
     overview = build_overview(
         counts(attempts=1, completed=1, input_tokens=10, output_tokens=10),

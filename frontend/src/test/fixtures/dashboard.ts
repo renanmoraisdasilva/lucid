@@ -17,6 +17,8 @@ export function dashboardData(overrides: Partial<DashboardData> = {}): Dashboard
       success_rate: 0.9275,
       input_tokens: 283100,
       output_tokens: 83300,
+      average_input_tokens: 2097,
+      average_output_tokens: 617,
       usage_partial: true,
       estimated_cost_usd: 0.29,
       pricing: {

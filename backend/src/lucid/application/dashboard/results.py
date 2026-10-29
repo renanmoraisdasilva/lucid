@@ -28,6 +28,8 @@ class Overview:
     success_rate: float | None
     input_tokens: int | None
     output_tokens: int | None
+    average_input_tokens: int | None
+    average_output_tokens: int | None
     usage_partial: bool
     estimated_cost_usd: float | None
     pricing: PricingInfo

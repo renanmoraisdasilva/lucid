@@ -66,6 +66,8 @@ def _overview_out(overview: Overview) -> OverviewOut:
         success_rate=overview.success_rate,
         input_tokens=overview.input_tokens,
         output_tokens=overview.output_tokens,
+        average_input_tokens=overview.average_input_tokens,
+        average_output_tokens=overview.average_output_tokens,
         usage_partial=overview.usage_partial,
         estimated_cost_usd=overview.estimated_cost_usd,
         pricing=PricingOut(

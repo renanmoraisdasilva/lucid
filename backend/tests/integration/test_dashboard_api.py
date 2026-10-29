@@ -88,6 +88,8 @@ async def test_dashboard_aggregates_and_excludes_in_progress(
     assert overview["success_rate"] == pytest.approx(1 / 3, abs=1e-4)
     assert overview["input_tokens"] == 1000
     assert overview["output_tokens"] == 200
+    assert overview["average_input_tokens"] == 1000
+    assert overview["average_output_tokens"] == 200
     assert overview["usage_partial"] is True
     assert overview["pricing"]["available"] is False
 
@@ -166,6 +168,8 @@ async def test_empty_range_is_explicit(api_client: AsyncClient) -> None:
     assert overview["success_rate"] is None
     assert overview["input_tokens"] == 0
     assert overview["output_tokens"] == 0
+    assert overview["average_input_tokens"] is None
+    assert overview["average_output_tokens"] is None
     assert overview["usage_partial"] is False
     assert len(body["trend"]) == 24
     assert all(point["attempts"] == 0 for point in body["trend"])
