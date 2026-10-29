@@ -74,7 +74,13 @@ export function OverviewMetrics({ overview }: { overview: DashboardOverview }) {
       <Metric
         label="Estimated cost"
         value={hasPricing ? formatCost(overview.estimated_cost_usd) : "Unavailable"}
-        detail={overview.pricing.free_tier ? "list price · free tier" : "estimate"}
+        detail={
+          hasPricing
+            ? overview.pricing.free_tier
+              ? "list price · free tier"
+              : "estimate"
+            : "pricing not configured"
+        }
         accent={hasPricing}
       />
     </div>

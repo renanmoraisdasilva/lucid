@@ -291,6 +291,16 @@ trend; the scan is the detail.
 - Warnings: the sidebar is still a fixed 260 px column; the responsive/off-canvas pass is D7. `failure-text.ts` remains at 36% because several error strings are covered only by chat integration paths.
 - Violations: none.
 
+### D5 health report (2026-10-29)
+
+- Frontend: 94 tests, 2,880 source + 1,764 test lines, **90.9% lines / 83.3% branches** (90.3% statements, 91.1% functions).
+- New chart files: `ChartFrame` 87, `TokenTrendChart` 119, `LatencyChart` 122, `ReliabilityChart` 128, `TokenUsageSummary` 60, `TrendsSection` 50, `chart.ts` 111, `dashboard-format` 99.
+- Dashboard component coverage is 98.5% lines; chart geometry, null gaps and zero buckets have dedicated tests.
+- A seeded preview database was checked at 1000 px: varied token lines, p50/p95 separation, stacked reliability bars, and no x-label wrapping.
+- Backend unchanged at 236 tests and 90.6% coverage; the token averages were exposed in a separate contract commit.
+- Warnings: sidebar responsiveness is still D7; `failure-text.ts` remains the lowest-covered client file.
+- Violations: none.
+
 The report is the answer to "is this getting out of hand?" If a number moves the
 wrong way, the milestone is not done until it is explained or fixed.
 

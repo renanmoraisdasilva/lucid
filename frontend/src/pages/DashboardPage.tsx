@@ -8,6 +8,8 @@ import {
   StaleBanner,
 } from "../components/dashboard/DashboardStates";
 import { OverviewMetrics } from "../components/dashboard/OverviewMetrics";
+import { TokenUsageSummary } from "../components/dashboard/TokenUsageSummary";
+import { TrendsSection } from "../components/dashboard/TrendsSection";
 import { useDashboard } from "../hooks/useDashboard";
 
 export function DashboardPage() {
@@ -42,7 +44,19 @@ export function DashboardPage() {
             <DashboardError onRetry={refresh} />
           ) : null}
 
-          {data !== undefined ? <OverviewMetrics overview={data.overview} /> : null}
+          {data !== undefined ? (
+            <>
+              <OverviewMetrics overview={data.overview} />
+              <TrendsSection
+                trend={data.trend}
+                latency={data.latency}
+                bucket={data.bucket}
+                inputTotal={data.overview.input_tokens}
+                outputTotal={data.overview.output_tokens}
+              />
+              <TokenUsageSummary overview={data.overview} />
+            </>
+          ) : null}
         </div>
       </main>
     </div>

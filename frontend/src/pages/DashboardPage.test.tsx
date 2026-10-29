@@ -41,6 +41,9 @@ describe("DashboardPage", () => {
     expect(mockedGetDashboard).toHaveBeenCalledWith("7d", expect.any(AbortSignal));
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Last 7 days")).toBeInTheDocument();
+    expect(screen.getByText("Token usage")).toBeInTheDocument();
+    expect(screen.getByText("Reliability")).toBeInTheDocument();
+    expect(screen.getByText("2,097")).toBeInTheDocument();
   });
 
   it("loads a new range when the selector changes", async () => {

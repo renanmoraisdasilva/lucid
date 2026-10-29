@@ -165,6 +165,8 @@ retention.
     "success_rate": 0.928,
     "input_tokens": 283100,
     "output_tokens": 83300,
+    "average_input_tokens": 2097,
+    "average_output_tokens": 617,
     "usage_partial": true,
     "estimated_cost_usd": 0.29,
     "pricing": {
@@ -427,12 +429,14 @@ now charts only.
 ### D5 — Overview and trends
 
 - [x] Seven KPI cards, including partial usage and cost/free-tier labels (landed in D4).
-- [ ] `chart.ts` + `ChartFrame` + three chart components.
-- [ ] Tests: formatting, chart geometry, null gaps, real zero buckets, legend and
+- [x] `chart.ts` + `ChartFrame` + three chart components.
+- [x] Tests: formatting, chart geometry, null gaps, real zero buckets, legend and
       sample counts.
 
 **Exit:** populated and empty/sparse ranges render honestly; no chart text scales
 with the SVG.
+**Done 2026-10-29.** 94 frontend tests pass; token totals and averages were added
+as the third section. See the D5 report in `code-health-budget.md` §4.3.
 
 ### D6 — Recent generations and details
 
