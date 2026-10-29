@@ -26,7 +26,7 @@ def terminal_range(window: DashboardWindow):
 def bucket_expression(window: DashboardWindow):
     if window.bucket is BucketSize.HOUR:
         return func.date_bin(text("interval '1 hour'"), GenerationAttempt.started_at, window.start)
-    return func.date_trunc("day", GenerationAttempt.started_at)
+    return func.date_trunc("day", GenerationAttempt.started_at, "UTC")
 
 
 def milliseconds(column: Any) -> Any:
