@@ -8,6 +8,7 @@ import {
   StaleBanner,
 } from "../components/dashboard/DashboardStates";
 import { OverviewMetrics } from "../components/dashboard/OverviewMetrics";
+import { RecentGenerations } from "../components/dashboard/RecentGenerations";
 import { TokenUsageSummary } from "../components/dashboard/TokenUsageSummary";
 import { TrendsSection } from "../components/dashboard/TrendsSection";
 import { useDashboard } from "../hooks/useDashboard";
@@ -55,6 +56,7 @@ export function DashboardPage() {
                 outputTotal={data.overview.output_tokens}
               />
               <TokenUsageSummary overview={data.overview} />
+              <RecentGenerations attempts={data.recent} />
             </>
           ) : null}
         </div>

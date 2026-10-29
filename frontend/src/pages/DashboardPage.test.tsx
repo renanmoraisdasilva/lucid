@@ -44,6 +44,8 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Token usage")).toBeInTheDocument();
     expect(screen.getByText("Reliability")).toBeInTheDocument();
     expect(screen.getByText("2,097")).toBeInTheDocument();
+    expect(screen.getByText("Latest 25 attempts")).toBeInTheDocument();
+    expect(screen.getAllByText("Event-Driven Architecture & Bus")).toHaveLength(2);
   });
 
   it("loads a new range when the selector changes", async () => {

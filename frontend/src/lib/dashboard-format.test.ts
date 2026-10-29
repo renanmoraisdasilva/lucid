@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   RANGE_LABELS,
   bucketLabel,
+  formatAttemptTime,
   formatAxisMs,
   formatCompactNumber,
   formatCost,
@@ -11,6 +12,7 @@ import {
   formatPercent,
   formatTokens,
   formatUpdated,
+  retrySummary,
 } from "./dashboard-format";
 
 describe("dashboard formatting", () => {
@@ -71,5 +73,18 @@ describe("dashboard formatting", () => {
     expect(bucketLabel("2026-10-29T00:00:00Z", "day")).toBe("Oct 29");
     expect(bucketLabel("2026-10-29T15:00:00Z", "hour")).toBe("15:00");
     expect(bucketLabel("2026-10-29T00:00:00Z", "hour")).toBe("00:00");
+  });
+
+  it("formats attempt timestamps in local time", () => {
+    const formatted = formatAttemptTime("2026-10-29T14:41:00Z");
+
+    expect(formatted).toContain("Oct 29");
+    expect(formatted).toMatch(/\d{2}:\d{2}/);
+  });
+
+  it("summarizes automatic and manual retries", () => {
+    expect(retrySummary(1, 0)).toBe("");
+    expect(retrySummary(2, 0)).toBe("1 manual");
+    expect(retrySummary(3, 2)).toBe("2 auto");
   });
 });

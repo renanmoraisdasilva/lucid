@@ -339,7 +339,11 @@ Backend tests: ~1,160 lines.
 | `src/components/dashboard/TokenTrendChart.tsx` | input/output over time | 90 | 150 |
 | `src/components/dashboard/LatencyChart.tsx` | p50/p95, gaps | 100 | 150 |
 | `src/components/dashboard/ReliabilityChart.tsx` | stacked outcome bars | 85 | 150 |
-| `src/components/dashboard/RecentGenerations.tsx` | table + mobile cards | 140 | 200 |
+| `src/components/dashboard/RecentGenerations.tsx` | section, cards, dialog state | 70 | 200 |
+| `src/components/dashboard/RecentAttemptsTable.tsx` | desktop table headers and rows | 60 | 150 |
+| `src/components/dashboard/RecentAttemptRow.tsx` | one desktop row | 60 | 120 |
+| `src/components/dashboard/RecentAttemptCard.tsx` | one mobile card | 80 | 150 |
+| `src/components/dashboard/StatusBadge.tsx` | completed/failed/interrupted chip | 40 | 100 |
 | `src/components/dashboard/GenerationDetailsDialog.tsx` | compact metadata modal | 110 | 200 |
 | `src/components/dashboard/DashboardStates.tsx` | empty, loading, error, stale | 90 | 150 |
 | `src/lib/chart.ts` | geometry helpers | 90 | 150 |
@@ -440,13 +444,18 @@ as the third section. See the D5 report in `code-health-budget.md` §4.3.
 
 ### D6 — Recent generations and details
 
-- [ ] Desktop table and mobile cards, keyboard activation.
-- [ ] Compact modal with status, model, tokens, TTFT, duration, HTTP, retries,
+- [x] Desktop table and mobile cards, keyboard activation.
+- [x] Compact modal with status, model, tokens, TTFT, duration, HTTP, retries,
       context and sanitized error.
-- [ ] Tests: column mapping, 25-row limit, modal content, Escape/backdrop close,
+- [x] Tests: column mapping, 25-row limit, modal content, Escape/backdrop close,
       failed row error block.
 
 **Exit:** every status variant is inspectable; no message content is exposed.
+**Done 2026-10-29.** 106 frontend tests pass. The section splits into
+`RecentAttemptsTable`, `RecentAttemptRow`, `RecentAttemptCard` and a shared
+`StatusBadge`; below 1280 px the table becomes cards so nine columns never force
+a horizontal scroll. The dialog shows metadata only. See the D6 report in
+`code-health-budget.md` §4.3.
 
 ### D7 — States, responsive and acceptance
 

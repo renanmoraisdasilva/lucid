@@ -80,6 +80,24 @@ export function bucketLabel(iso: string, bucket: DashboardBucket): string {
   }).format(date);
 }
 
+export function formatAttemptTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+/** A compact retry note for a table or card: automatic retries win over manual. */
+export function retrySummary(attemptNo: number, automaticRetries: number): string {
+  if (automaticRetries > 0) {
+    return `${automaticRetries} auto`;
+  }
+  const manual = attemptNo - 1;
+  return manual > 0 ? `${manual} manual` : "";
+}
+
 export function formatUpdated(updatedAt: number, now: number): string {
   if (updatedAt <= 0) {
     return "Not loaded yet";

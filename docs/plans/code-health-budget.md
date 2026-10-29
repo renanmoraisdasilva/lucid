@@ -301,6 +301,16 @@ trend; the scan is the detail.
 - Warnings: sidebar responsiveness is still D7; `failure-text.ts` remains the lowest-covered client file.
 - Violations: none.
 
+### D6 health report (2026-10-29)
+
+- Frontend: 106 tests, 3,328 source + 2,031 test lines, **91.6% lines / 83.6% branches** (91.1% statements, 92.1% functions).
+- New files: `RecentGenerations` 66, `RecentAttemptsTable` 60, `RecentAttemptRow` 61, `RecentAttemptCard` 78, `StatusBadge` 37, `GenerationDetailsDialog` 126 lines — all below their caps.
+- Dashboard components are at 98.3% statements / 99.1% lines; the dialog and both row shapes have dedicated tests.
+- A seeded preview database was checked at 912 px: cards below 1280 px, the failed/automatic-retry path, and a 560×466 modal with focus on Close and a sanitized error block. The nine-column table needs 787 px, which drove the switch to cards below 1280 px.
+- Backend unchanged at 236 tests and 90.6% coverage.
+- Warnings: focus is not trapped inside the dialog (matching the existing `ConfirmDialog`); sidebar responsiveness and the 1440/768/390 pass are D7.
+- Violations: none.
+
 The report is the answer to "is this getting out of hand?" If a number moves the
 wrong way, the milestone is not done until it is explained or fixed.
 
