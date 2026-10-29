@@ -7,8 +7,8 @@ export interface ChatStreamController {
   error: ChatError | null;
   streaming: boolean;
   stopping: boolean;
-  send: (content: string) => Promise<void>;
-  retry: (messageId: string) => Promise<void>;
+  send: (content: string, modelId: string | null) => Promise<void>;
+  retry: (messageId: string, modelId: string | null) => Promise<void>;
   stop: () => Promise<void>;
   reset: (conversationId: string | null) => void;
 }

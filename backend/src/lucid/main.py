@@ -12,11 +12,13 @@ from lucid.api.routes_chat import router as chat_router
 from lucid.api.routes_conversations import router as conversations_router
 from lucid.api.routes_dashboard import router as dashboard_router
 from lucid.api.routes_health import router as health_router
+from lucid.api.routes_models import router as models_router
 from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.dashboard.retention import (
     delete_expired_attempts,
     periodic_retention,
 )
+from lucid.application.models import build_catalog
 from lucid.application.prompts import load_system_prompt
 from lucid.application.registry import GenerationRegistry
 from lucid.config import get_settings
@@ -27,7 +29,7 @@ from lucid.persistence.db import (
     init_engine,
 )
 from lucid.persistence.reconciliation import reconcile_stale_attempts
-from lucid.providers.factory import build_provider
+from lucid.providers.factory import ProviderRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Initialize and release process-wide resources."""
     settings = get_settings()
     init_engine(settings.database_url)
-    app.state.provider = build_provider(settings)
+    catalog = build_catalog(settings)
+    app.state.catalog = catalog
+    app.state.providers = ProviderRegistry(settings)
     app.state.system_prompt = load_system_prompt(settings.system_prompt_path)
     app.state.session_factory = get_session_factory()
     app.state.registry = GenerationRegistry()
@@ -60,8 +64,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     logger.info(
         "startup complete",
         extra={
-            "ctx_provider": settings.provider,
-            "ctx_model": settings.gemini_model,
+            "ctx_default_model": catalog.default_id,
+            "ctx_models": len(catalog.options),
             "ctx_context_tokens": settings.context_max_input_tokens,
             "ctx_retention_days": settings.telemetry_retention_days,
         },
@@ -73,6 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         with suppress(asyncio.CancelledError):
             await retention_task
         await app.state.registry.cancel_all()
+        await app.state.providers.aclose()
         await dispose_engine()
 
 
@@ -92,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(conversations_router, prefix="/api")
     app.include_router(chat_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")
+    app.include_router(models_router, prefix="/api")
     return app
 
 

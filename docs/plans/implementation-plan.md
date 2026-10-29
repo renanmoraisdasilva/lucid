@@ -12,6 +12,27 @@
 > and how each milestone is proven done. If reality contradicts a decision here,
 > stop, record it, and update the spec/ADR before continuing.
 
+> **Amendment (2026-10-29, v1.1) — superseded contract details.** The build
+> described below was completed against Gemini only. [ADR-007](../decisions/ADR-007-openai-compatible-provider-and-model-selection.md)
+> and spec v0.5 then added a second provider and a model picker. Where this plan
+> disagrees with the code, the code and ADR-007 win:
+>
+> - `PROVIDER` defaults to `openai_compatible` (OpenAI-compatible endpoint, Groq by
+>   default) instead of `gemini`; `gemini` and `fake` remain valid.
+> - Keys: `OPENAI_API_KEY` (or `GROQ_API_KEY`) for the default provider,
+>   `GEMINI_API_KEY` for Gemini. Keys are optional at startup; with none, the
+>   catalogue offers the scripted provider.
+> - `GET /api/models` returns the catalogue (`items`, `default_id`).
+> - `POST /api/chat` and the retry endpoint accept an optional `model_id`;
+>   unknown ids are `400 model_not_available`.
+> - `gemini_timeout_seconds` / `gemini_max_output_tokens` are now
+>   `generation_timeout_seconds` / `generation_max_output_tokens` (old env names
+>   still accepted).
+> - Context defaults: 6,000 input tokens and a 2,048 output reserve (was
+>   20,000 / 4,096) to fit Groq's 8K tokens/minute free tier.
+> - `httpx` is a runtime dependency (the default adapter's client), not only a
+>   test dependency.
+
 ---
 
 ## 1. Starting state

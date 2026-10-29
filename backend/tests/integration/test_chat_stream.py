@@ -50,7 +50,7 @@ def fake_provider() -> FakeProvider:
 
 @pytest.fixture
 async def chat_client(app: FastAPI, fake_provider: FakeProvider) -> AsyncIterator[AsyncClient]:
-    app.state.provider = fake_provider
+    app.state.providers.override("fake", fake_provider)
     app.state.system_prompt = "You are a test assistant."
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http_client:

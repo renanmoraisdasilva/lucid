@@ -85,6 +85,11 @@ faster in every paired sample, and the model id remains configuration only.
 R1 is unchanged and the model picker remains the post-MVP follow-up. The original
 reasoning above is kept as history, not rewritten.
 
+> **Update (2026-10-29, v0.5):** the model picker is no longer deferred, and Gemini
+> is no longer the only provider — see
+> [ADR-007](ADR-007-openai-compatible-provider-and-model-selection.md). This ADR
+> still governs the Gemini adapter itself.
+
 ## Follow-ups
 
 - **Model churn is a tracked risk.** See the risk section of

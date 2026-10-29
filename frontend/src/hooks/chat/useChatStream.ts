@@ -30,6 +30,10 @@ export function useChatStream(options: {
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    // StrictMode runs mount -> cleanup -> mount in development, so the flag has
+    // to be restored here; otherwise this instance believes it is unmounted for
+    // the rest of the session and never clears the streaming state.
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       abortRef.current?.abort();
@@ -104,7 +108,7 @@ export function useChatStream(options: {
   );
 
   const send = useCallback(
-    async (content: string) => {
+    async (content: string, modelId: string | null) => {
       if (streaming || !content.trim()) {
         return;
       }
@@ -114,6 +118,7 @@ export function useChatStream(options: {
         const events = await streamChat({
           conversationId: conversationIdRef.current,
           content,
+          modelId,
           signal: controller.signal,
         });
         await run(events, content);
@@ -127,7 +132,7 @@ export function useChatStream(options: {
   );
 
   const retry = useCallback(
-    async (messageId: string) => {
+    async (messageId: string, modelId: string | null) => {
       const conversationId = conversationIdRef.current;
       if (!conversationId || streaming) {
         return;
@@ -138,6 +143,7 @@ export function useChatStream(options: {
         const events = await streamRetry({
           conversationId,
           messageId,
+          modelId,
           signal: controller.signal,
         });
         await run(events, null);

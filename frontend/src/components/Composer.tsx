@@ -1,16 +1,52 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import type { ModelOption } from "../api/types";
+import { ModelPicker } from "./ModelPicker";
 
 interface ComposerProps {
   streaming: boolean;
   stopping: boolean;
+  models: ModelOption[];
+  modelId: string | null;
+  onSelectModel: (id: string) => void;
   onSend: (content: string) => void;
   onStop: () => void;
 }
 
 const MAX_LENGTH = 16_000;
 
-export function Composer({ streaming, stopping, onSend, onStop }: ComposerProps) {
+export function Composer({
+  streaming,
+  stopping,
+  models,
+  modelId,
+  onSelectModel,
+  onSend,
+  onStop,
+}: ComposerProps) {
   const [draft, setDraft] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const wasStreamingRef = useRef(streaming);
+
+  // Disabling the textarea while a response streams also blurs it. When the
+  // response ends, put the caret back so the next message needs no click, but
+  // leave focus alone if the user moved somewhere else in the meantime.
+  useEffect(() => {
+    const wasStreaming = wasStreamingRef.current;
+    wasStreamingRef.current = streaming;
+    if (!wasStreaming || streaming) {
+      return;
+    }
+    const active = document.activeElement;
+    const focusIsFree =
+      active === null ||
+      active === document.body ||
+      active === document.documentElement ||
+      active === textareaRef.current;
+    if (focusIsFree) {
+      textareaRef.current?.focus();
+    }
+  }, [streaming]);
 
   function submit() {
     const content = draft.trim();
@@ -35,6 +71,7 @@ export function Composer({ streaming, stopping, onSend, onStop }: ComposerProps)
           </label>
           <textarea
             id="composer"
+            ref={textareaRef}
             rows={1}
             value={draft}
             disabled={streaming}
@@ -51,18 +88,29 @@ export function Composer({ streaming, stopping, onSend, onStop }: ComposerProps)
           />
 
           <div className="flex items-center justify-between gap-2 pt-1">
-            {streaming ? (
-              <span className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-accent" />
-                {stopping ? "Stopping..." : "Generating response"}
-              </span>
-            ) : (
-              <span className="font-mono text-[11px] text-text-muted">
-                {draft.length > MAX_LENGTH - 1_000
-                  ? `${draft.length} / ${MAX_LENGTH}`
-                  : "Enter to send \u00b7 Shift + Enter for new line"}
-              </span>
-            )}
+            <div className="flex min-w-0 items-center gap-2">
+              {models.length > 0 ? (
+                <ModelPicker
+                  models={models}
+                  value={modelId}
+                  disabled={streaming}
+                  onChange={onSelectModel}
+                />
+              ) : null}
+
+              {streaming ? (
+                <span className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-accent" />
+                  {stopping ? "Stopping..." : "Generating response"}
+                </span>
+              ) : (
+                <span className="truncate font-mono text-[11px] text-text-muted">
+                  {draft.length > MAX_LENGTH - 1_000
+                    ? `${draft.length} / ${MAX_LENGTH}`
+                    : "Enter to send \u00b7 Shift + Enter for new line"}
+                </span>
+              )}
+            </div>
 
             {streaming ? (
               <button

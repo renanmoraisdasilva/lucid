@@ -120,7 +120,11 @@ describe("streaming requests", () => {
       ]),
     );
 
-    const events = await streamChat({ conversationId: null, content: "Hello" });
+    const events = await streamChat({
+      conversationId: null,
+      content: "Hello",
+      modelId: "openai:openai/gpt-oss-120b",
+    });
     const collected: StreamEvent[] = [];
     for await (const event of events) {
       collected.push(event);
@@ -130,17 +134,26 @@ describe("streaming requests", () => {
     expect(collected[1]).toEqual({ type: "delta", data: { text: "Hi" } });
     expect(mockedFetch).toHaveBeenCalledWith(
       "/api/chat",
-      expect.objectContaining({ method: "POST", body: expect.stringContaining("Hello") }),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"model_id":"openai:openai/gpt-oss-120b"'),
+      }),
     );
   });
 
   it("retries with the conversation and message ids", async () => {
     mockedFetch.mockResolvedValue(sseResponse([]));
 
-    await streamRetry({ conversationId: "c1", messageId: "m1" });
+    await streamRetry({
+      conversationId: "c1",
+      messageId: "m1",
+      modelId: "gemini:gemini-3.6-flash",
+    });
 
     expect(mockedFetch).toHaveBeenCalledWith("/api/conversations/c1/messages/m1/retry", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"model_id":"gemini:gemini-3.6-flash"}',
       signal: undefined,
     });
   });
@@ -148,7 +161,9 @@ describe("streaming requests", () => {
   it("turns an unreadable error body into a generic API error", async () => {
     mockedFetch.mockResolvedValue(new Response("not json", { status: 502 }));
 
-    await expect(streamChat({ conversationId: null, content: "hi" })).rejects.toMatchObject({
+    await expect(
+      streamChat({ conversationId: null, content: "hi", modelId: null }),
+    ).rejects.toMatchObject({
       code: "request_failed",
       status: 502,
     });

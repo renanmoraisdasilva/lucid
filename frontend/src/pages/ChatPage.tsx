@@ -34,6 +34,9 @@ export function ChatPage({
       <Composer
         streaming={chat.streaming}
         stopping={chat.stopping}
+        models={chat.models}
+        modelId={chat.modelId}
+        onSelectModel={chat.selectModel}
         onSend={(content) => void chat.send(content)}
         onStop={() => void chat.stop()}
       />

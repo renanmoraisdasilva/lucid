@@ -69,9 +69,15 @@ describe("useChatStream", () => {
     const { result } = renderHook(() => useChatStream({ onConversation }), { wrapper });
 
     await act(async () => {
-      await result.current.send("hi");
+      await result.current.send("hi", "openai:openai/gpt-oss-120b");
     });
 
+    expect(mockedStreamChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: "hi",
+        modelId: "openai:openai/gpt-oss-120b",
+      }),
+    );
     expect(onConversation).toHaveBeenCalledWith("c1");
     expect(result.current.error).toBeNull();
     expect(result.current.streaming).toBe(false);
@@ -97,7 +103,7 @@ describe("useChatStream", () => {
     const { result } = renderHook(() => useChatStream({ onConversation: vi.fn() }), { wrapper });
 
     await act(async () => {
-      await result.current.send("hi");
+      await result.current.send("hi", null);
     });
 
     expect(result.current.error).toMatchObject({
@@ -112,7 +118,7 @@ describe("useChatStream", () => {
     const { result } = renderHook(() => useChatStream({ onConversation: vi.fn() }), { wrapper });
 
     await act(async () => {
-      await result.current.send("hi");
+      await result.current.send("hi", null);
     });
 
     expect(result.current.error).toMatchObject({
@@ -125,7 +131,7 @@ describe("useChatStream", () => {
     const { result } = renderHook(() => useChatStream({ onConversation: vi.fn() }), { wrapper });
 
     await act(async () => {
-      await result.current.send("   ");
+      await result.current.send("   ", null);
     });
 
     expect(mockedStreamChat).not.toHaveBeenCalled();
@@ -136,7 +142,7 @@ describe("useChatStream", () => {
     const { result } = renderHook(() => useChatStream({ onConversation: vi.fn() }), { wrapper });
 
     await act(async () => {
-      await result.current.send("hi");
+      await result.current.send("hi", null);
     });
     expect(result.current.error).not.toBeNull();
 
@@ -155,11 +161,15 @@ describe("useChatStream", () => {
       result.current.reset("c1");
     });
     await act(async () => {
-      await result.current.retry("m1");
+      await result.current.retry("m1", "gemini:gemini-3.6-flash");
     });
 
     expect(mockedStreamRetry).toHaveBeenCalledWith(
-      expect.objectContaining({ conversationId: "c1", messageId: "m1" }),
+      expect.objectContaining({
+        conversationId: "c1",
+        messageId: "m1",
+        modelId: "gemini:gemini-3.6-flash",
+      }),
     );
     expect(mockedStop).not.toHaveBeenCalled();
   });

@@ -96,6 +96,29 @@ class ChatRequest(BaseModel):
 
     conversation_id: uuid.UUID | None = None
     content: MessageContent
+    model_id: str | None = None
+
+
+class RetryRequest(BaseModel):
+    """Retry an existing user message, optionally with another model."""
+
+    model_id: str | None = None
+
+
+class ModelOptionOut(BaseModel):
+    """One selectable model."""
+
+    id: str
+    label: str
+    provider: str
+    model: str
+
+
+class ModelsResponse(BaseModel):
+    """Models available to the picker."""
+
+    items: list[ModelOptionOut]
+    default_id: str
 
 
 class StopGenerationResponse(BaseModel):

@@ -1,6 +1,6 @@
 """Streaming chat endpoints: send, retry, stop.
 
-The response is SSE. Errors detected before the stream starts (404, 409, 422)
+The response is SSE. Errors detected before the stream starts (400, 404, 409, 422)
 use the normal JSON error envelope; anything after `meta` is an `error` event.
 """
 
@@ -10,9 +10,14 @@ from collections.abc import AsyncIterator
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
 
-from lucid.api.deps import RegistryDep, SessionDep, StreamDeps, StreamDepsDep
+from lucid.api.deps import (
+    RegistryDep,
+    SessionDep,
+    StreamDeps,
+    StreamDepsDep,
+)
 from lucid.api.errors import ApiError
-from lucid.api.schemas import ChatRequest, StopGenerationResponse
+from lucid.api.schemas import ChatRequest, RetryRequest, StopGenerationResponse
 from lucid.api.sse import SSE_HEADERS, SSE_MEDIA_TYPE, encode_event
 from lucid.application.chat import (
     ConversationNotFoundError,
@@ -26,10 +31,13 @@ from lucid.application.chat import (
     stream_generation,
 )
 from lucid.application.context import ContextBudget
+from lucid.application.models import ModelOption
 from lucid.application.retry import RetryPolicy
 from lucid.config import Settings, get_settings
 from lucid.domain.enums import AttemptStatus
+from lucid.domain.errors import ConfigurationError
 from lucid.domain.outcome import AttemptOutcome
+from lucid.domain.provider import ChatProvider
 from lucid.persistence.repositories import AttemptRepository
 
 router = APIRouter(tags=["chat"])
@@ -42,21 +50,22 @@ async def send_message_endpoint(
     deps: StreamDepsDep,
 ) -> StreamingResponse:
     """Send a message and stream the reply. Creates the conversation if needed."""
-    settings = get_settings()
+    option, provider = _resolve_model(deps, payload.model_id)
+
     try:
         prepared = await prepare_message(
             session,
             content=payload.content,
             conversation_id=payload.conversation_id,
-            provider_name=deps.provider.name,
-            model=settings.gemini_model,
+            provider_name=provider.name,
+            model=option.model,
         )
     except ConversationNotFoundError as error:
         raise _conversation_not_found() from error
     except GenerationInProgressError as error:
         raise _generation_in_progress(error) from error
 
-    return _stream_response(prepared, deps)
+    return _stream_response(prepared, deps, provider=provider, model=option.model)
 
 
 @router.post("/conversations/{conversation_id}/messages/{message_id}/retry")
@@ -65,16 +74,18 @@ async def retry_message_endpoint(
     message_id: uuid.UUID,
     session: SessionDep,
     deps: StreamDepsDep,
+    payload: RetryRequest | None = None,
 ) -> StreamingResponse:
     """Retry generation for an existing user message."""
-    settings = get_settings()
+    option, provider = _resolve_model(deps, payload.model_id if payload is not None else None)
+
     try:
         prepared = await prepare_retry(
             session,
             conversation_id=conversation_id,
             message_id=message_id,
-            provider_name=deps.provider.name,
-            model=settings.gemini_model,
+            provider_name=provider.name,
+            model=option.model,
         )
     except ConversationNotFoundError as error:
         raise _conversation_not_found() from error
@@ -93,7 +104,7 @@ async def retry_message_endpoint(
     except GenerationInProgressError as error:
         raise _generation_in_progress(error) from error
 
-    return _stream_response(prepared, deps)
+    return _stream_response(prepared, deps, provider=provider, model=option.model)
 
 
 @router.post(
@@ -141,12 +152,42 @@ async def stop_generation_endpoint(
     )
 
 
-def _stream_response(prepared: PreparedGeneration, deps: StreamDeps) -> StreamingResponse:
+def _resolve_model(
+    deps: StreamDeps,
+    model_id: str | None,
+) -> tuple[ModelOption, ChatProvider]:
+    option = deps.catalog.find(model_id)
+    if option is None:
+        raise ApiError(
+            "model_not_available",
+            "That model is not available.",
+            status_code=400,
+            details={"model_id": model_id},
+        )
+    try:
+        provider = deps.providers.get(option.provider)
+    except ConfigurationError as error:
+        raise ApiError(
+            "model_not_available",
+            "That model is not configured on the server.",
+            status_code=400,
+            details={"model_id": option.id},
+        ) from error
+    return option, provider
+
+
+def _stream_response(
+    prepared: PreparedGeneration,
+    deps: StreamDeps,
+    *,
+    provider: ChatProvider,
+    model: str,
+) -> StreamingResponse:
     settings = get_settings()
     options = GenerationOptions(
         system_prompt=deps.system_prompt,
-        model=settings.gemini_model,
-        max_output_tokens=settings.gemini_max_output_tokens,
+        model=model,
+        max_output_tokens=settings.generation_max_output_tokens,
         context_budget=_context_budget(settings),
         retry_policy=_retry_policy(settings),
         first_token_timeout=settings.generation_first_token_timeout_seconds,
@@ -155,7 +196,7 @@ def _stream_response(prepared: PreparedGeneration, deps: StreamDeps) -> Streamin
     events = stream_generation(
         prepared,
         session_factory=deps.session_factory,
-        provider=deps.provider,
+        provider=provider,
         registry=deps.registry,
         options=options,
     )

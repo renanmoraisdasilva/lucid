@@ -1,11 +1,13 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { deleteConversation, getConversation, listConversations } from "../api/client";
-import type { Message } from "../api/types";
+import { deleteConversation, getConversation, getModels, listConversations } from "../api/client";
+import type { Message, ModelOption } from "../api/types";
 import type { ChatError } from "../lib/chat-types";
 import { groupConversations, type ConversationGroup } from "../lib/grouping";
 import { useChatStream } from "./chat/useChatStream";
+
+const MODEL_STORAGE_KEY = "lucid.model";
 
 export type { ChatError } from "../lib/chat-types";
 
@@ -20,6 +22,9 @@ export interface ChatController {
   stopping: boolean;
   hasMore: boolean;
   loadingMore: boolean;
+  models: ModelOption[];
+  modelId: string | null;
+  selectModel: (id: string) => void;
   loadMore: () => void;
   send: (content: string) => Promise<void>;
   retry: (messageId: string) => Promise<void>;
@@ -62,6 +67,27 @@ export function useChat(): ChatController {
   );
   const groups = useMemo(() => groupConversations(conversations), [conversations]);
 
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: ({ signal }) => getModels(signal),
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  const [modelId, setModelId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : window.localStorage.getItem(MODEL_STORAGE_KEY),
+  );
+
+  const models = useMemo<ModelOption[]>(() => modelsQuery.data?.items ?? [], [modelsQuery.data]);
+  const defaultModelId = modelsQuery.data?.default_id ?? null;
+  const effectiveModelId =
+    modelId !== null && models.some((option) => option.id === modelId) ? modelId : defaultModelId;
+
+  const selectModel = useCallback((id: string) => {
+    setModelId(id);
+    window.localStorage.setItem(MODEL_STORAGE_KEY, id);
+  }, []);
+
   const messages = useMemo(() => {
     const persisted = conversationQuery.data?.messages ?? [];
     if (stream.pendingUser === null) {
@@ -77,6 +103,19 @@ export function useChat(): ChatController {
     };
     return [...persisted, optimistic];
   }, [conversationQuery.data, stream.pendingUser]);
+
+  const sendStream = stream.send;
+  const retryStream = stream.retry;
+
+  const send = useCallback(
+    (content: string) => sendStream(content, effectiveModelId),
+    [effectiveModelId, sendStream],
+  );
+
+  const retry = useCallback(
+    (messageId: string) => retryStream(messageId, effectiveModelId),
+    [effectiveModelId, retryStream],
+  );
 
   const newChat = useCallback(() => {
     setCurrentId(null);
@@ -125,9 +164,12 @@ export function useChat(): ChatController {
     stopping: stream.stopping,
     hasMore: conversationsQuery.hasNextPage,
     loadingMore: conversationsQuery.isFetchingNextPage,
+    models,
+    modelId: effectiveModelId,
+    selectModel,
     loadMore,
-    send: stream.send,
-    retry: stream.retry,
+    send,
+    retry,
     stop: stream.stop,
     openConversation,
     newChat,

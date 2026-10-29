@@ -7,20 +7,13 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.application.cooldown import RateLimitCooldown
+from lucid.application.models import ModelCatalog
 from lucid.application.registry import GenerationRegistry
 from lucid.domain.errors import ConfigurationError
-from lucid.domain.provider import ChatProvider
 from lucid.persistence.db import get_session, get_session_factory
+from lucid.providers.factory import ProviderRegistry
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
-
-
-def get_provider(request: Request) -> ChatProvider:
-    """The provider built at startup, injected for tests via app.state."""
-    provider: object = getattr(request.app.state, "provider", None)
-    if not isinstance(provider, ChatProvider):
-        raise ConfigurationError("Chat provider is not initialized")
-    return provider
 
 
 def get_system_prompt(request: Request) -> str:
@@ -47,6 +40,22 @@ def get_cooldown(request: Request) -> RateLimitCooldown:
     return cooldown
 
 
+def get_catalog(request: Request) -> ModelCatalog:
+    """The model catalogue built at startup."""
+    catalog: object = getattr(request.app.state, "catalog", None)
+    if not isinstance(catalog, ModelCatalog):
+        raise ConfigurationError("Model catalogue is not initialized")
+    return catalog
+
+
+def get_providers(request: Request) -> ProviderRegistry:
+    """The lazily built provider registry."""
+    providers: object = getattr(request.app.state, "providers", None)
+    if not isinstance(providers, ProviderRegistry):
+        raise ConfigurationError("Provider registry is not initialized")
+    return providers
+
+
 def get_session_factory_dependency(
     request: Request,
 ) -> async_sessionmaker[AsyncSession]:
@@ -57,10 +66,11 @@ def get_session_factory_dependency(
     return get_session_factory()
 
 
-ProviderDep = Annotated[ChatProvider, Depends(get_provider)]
 SystemPromptDep = Annotated[str, Depends(get_system_prompt)]
 RegistryDep = Annotated[GenerationRegistry, Depends(get_generation_registry)]
 CooldownDep = Annotated[RateLimitCooldown, Depends(get_cooldown)]
+CatalogDep = Annotated[ModelCatalog, Depends(get_catalog)]
+ProvidersDep = Annotated[ProviderRegistry, Depends(get_providers)]
 SessionFactoryDep = Annotated[
     async_sessionmaker[AsyncSession], Depends(get_session_factory_dependency)
 ]
@@ -68,24 +78,30 @@ SessionFactoryDep = Annotated[
 
 @dataclass(frozen=True, slots=True)
 class StreamDeps:
-    """Everything the chat stream needs, resolved once per request."""
+    """Everything the chat stream needs, resolved once per request.
 
-    provider: ChatProvider
+    The provider and the model are per request (they come from the catalogue and
+    the request body), so the route resolves them from `catalog`/`providers`.
+    """
+
     system_prompt: str
     session_factory: async_sessionmaker[AsyncSession]
     registry: GenerationRegistry
     cooldown: RateLimitCooldown
+    catalog: ModelCatalog
+    providers: ProviderRegistry
 
 
-def get_stream_deps(
-    provider: ProviderDep,
-    system_prompt: SystemPromptDep,
-    session_factory: SessionFactoryDep,
-    registry: RegistryDep,
-    cooldown: CooldownDep,
-) -> StreamDeps:
+def get_stream_deps(request: Request) -> StreamDeps:
     """Bundle the streaming dependencies so routes stay small."""
-    return StreamDeps(provider, system_prompt, session_factory, registry, cooldown)
+    return StreamDeps(
+        system_prompt=get_system_prompt(request),
+        session_factory=get_session_factory_dependency(request),
+        registry=get_generation_registry(request),
+        cooldown=get_cooldown(request),
+        catalog=get_catalog(request),
+        providers=get_providers(request),
+    )
 
 
 StreamDepsDep = Annotated[StreamDeps, Depends(get_stream_deps)]

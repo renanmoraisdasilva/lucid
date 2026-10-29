@@ -1,7 +1,8 @@
 # Lucid
 
 A single-user, ChatGPT-style chatbot built as a learning project: FastAPI +
-PostgreSQL backend, React + TypeScript frontend, streamed responses from Gemini.
+PostgreSQL backend, React + TypeScript frontend, streamed responses from an
+OpenAI-compatible endpoint (Groq by default) or Gemini.
 
 The point is not the chatbot. It is to build, test, and explain the complete
 lifecycle of an LLM-backed application — request, context construction, provider
@@ -22,6 +23,7 @@ acceptance criteria.**
 | 4 — Streaming chat | ✅ |
 | 5 — Context, usage, resilience | ✅ |
 | 6 — UI polish and acceptance | ✅ |
+| 7 — Second provider and model picker | ✅ |
 
 ### Acceptance results (2026-10-29)
 
@@ -29,7 +31,7 @@ acceptance criteria.**
 |---|---|
 | Start frontend, backend, and PostgreSQL via Compose from documented steps | ✅ `docker compose --profile full up --build`; all three healthy, SPA on `:8080` |
 | Create a new chat by submitting the first message | ✅ Live + integration tests |
-| Receive a streamed Gemini response | ✅ Live through the nginx proxy (deltas, usage, `done`) |
+| Receive a streamed model response | ✅ Live through the nginx proxy (deltas, usage, `done`), and a live Groq call (0.38s to first token) |
 | Conversations persist across restarts | ✅ Backend container restarted; conversation and both messages intact |
 | Sidebar newest first with pagination | ✅ `useInfiniteQuery` + keyset API; API pagination tests |
 | Titles derived, capped at 80, ellipsized | ✅ Unit tests, CSS truncation |
@@ -42,7 +44,7 @@ acceptance criteria.**
 | Attempts and statuses persisted separately | ✅ Schema constraints and lifecycle tests |
 | Per-response token usage | ✅ Live `117 in / 1 out`, or `usage unavailable` |
 | Full history stored, bounded context sent | ✅ Context selection tests; provider request bounded |
-| Automated coverage of core behaviour | ✅ 177 backend, 31 frontend |
+| Automated coverage of core behaviour | ✅ 224 backend, 42 frontend |
 
 Not exercised end to end, and listed in
 [`docs/architecture/gemini-adapter-notes.md`](docs/architecture/gemini-adapter-notes.md):
@@ -58,7 +60,7 @@ against a stalled provider.
 | [`docs/plans/implementation-plan.md`](docs/plans/implementation-plan.md) | How it gets built: architecture, DDL, API and SSE contracts, milestones, tests, risks |
 | [`docs/plans/dashboard-implementation-plan.md`](docs/plans/dashboard-implementation-plan.md) | Dashboard milestones, API shape, file inventory, test matrix |
 | [`docs/plans/code-health-budget.md`](docs/plans/code-health-budget.md) | Enforced size, complexity, coverage and maintainability limits |
-| [`docs/decisions/`](docs/decisions/) | ADRs for the consequential choices (provider, data model, streaming, ids, failures, frontend) |
+| [`docs/decisions/`](docs/decisions/) | ADRs for the consequential choices (provider, data model, streaming, ids, failures, frontend, model selection) |
 | [`docs/architecture/`](docs/architecture/) | Adapter notes: verified SDK behaviour, event shapes, error mapping |
 | [`docs/screen-mockups/`](docs/screen-mockups/) | Static HTML previews of every UI state, plus the shared design tokens and shell |
 
@@ -79,7 +81,7 @@ No RAG, no agents, no tools, no file uploads, no cloud deployment.
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic v2 |
 | Persistence | PostgreSQL 17, SQLAlchemy 2.x async, asyncpg, Alembic |
-| Model | Gemini `gemini-3.6-flash` via the Interactions API (`google-genai`) — Milestone 3 |
+| Model | OpenAI-compatible endpoint (Groq by default) via `httpx`; Gemini via the Interactions API (`google-genai`) — see ADR-007 |
 | Streaming | Server-Sent Events over `POST`, parsed with `fetch` — Milestone 4 |
 | Frontend | React 19 + TypeScript, Vite, Tailwind CSS |
 | Quality | Ruff, Pyright (strict), pytest, ESLint, Prettier, Vitest, GitHub Actions |
@@ -99,6 +101,7 @@ No RAG, no agents, no tools, no file uploads, no cloud deployment.
 | `tailwindcss` | Styling without a bespoke CSS system |
 | `eslint`, `prettier`, `vitest`, `@testing-library/*` | Frontend quality gates |
 | `google-genai` | Gemini Interactions API client (added in Milestone 3) |
+| `httpx` | Async HTTP client for the OpenAI-compatible adapter and its test transport |
 
 ## Prerequisites
 
@@ -106,7 +109,8 @@ No RAG, no agents, no tools, no file uploads, no cloud deployment.
 - [`uv`](https://docs.astral.sh/uv/) and Python 3.12 (uv can install the
   interpreter itself)
 - Node.js 22+
-- A Gemini API key, free tier is sufficient (Milestone 3 onwards)
+- A model API key, free tier is sufficient: a Groq key (the default endpoint) or a
+  Gemini key
 
 ### Installing the toolchain on Windows
 
@@ -131,7 +135,7 @@ A new shell is required after `winget install` for `uv` to be on `PATH`.
 
 ```powershell
 npm install                   # once, for the root dev tooling
-Copy-Item .env.example .env   # paste GEMINI_API_KEY into .env
+Copy-Item .env.example .env   # paste OPENAI_API_KEY (Groq) or GEMINI_API_KEY into .env
 npm run dev
 ```
 
@@ -178,8 +182,11 @@ reach the backend.
 Configuration is read from the repository-root `.env` first, then `backend/.env`,
 so a local override next to the code wins. Every setting has a working default in
 `backend/src/lucid/config.py`; `.env` only needs secrets and deliberate
-overrides. `PROVIDER=gemini` requires `GEMINI_API_KEY`; `PROVIDER=fake` runs the
-scripted provider with no key and no network access.
+overrides. `PROVIDER=openai_compatible` (the default) needs `OPENAI_API_KEY` or
+`GROQ_API_KEY`; `PROVIDER=gemini` needs `GEMINI_API_KEY`; `PROVIDER=fake` runs the
+scripted provider with no key and no network access. The picker lists the models of
+whichever providers have a key, and falls back to the scripted provider when none
+do.
 
 ### Whole stack in Docker
 
@@ -203,8 +210,9 @@ The backend image applies Alembic migrations before serving. nginx proxies
 | `GET /api/health/ready` | Readiness, includes a database round trip |
 | `GET /api/conversations` | Cursor-paginated list, most recently updated first |
 | `GET /api/conversations/{id}` | Conversation with messages and attempt metadata |
+| `GET /api/models` | Models offered by the picker, with the default selection |
 | `DELETE /api/conversations/{id}` | Permanent delete, messages and attempts cascade |
-| `POST /api/chat` | Send a message; returns `text/event-stream` |
+| `POST /api/chat` | Send a message; returns `text/event-stream`. Optional `model_id` selects the model |
 | `POST /api/conversations/{cid}/messages/{mid}/retry` | Retry a user message; streams a new attempt |
 | `POST /api/conversations/{cid}/generations/{aid}/stop` | Cooperative stop, `202`, idempotent |
 | `/docs` | OpenAPI UI (development convenience) |
@@ -241,7 +249,7 @@ Point them elsewhere with `TEST_DATABASE_URL`.
 |---|---|---|
 | Unit | context selection, retry policy, titles, cursors, provider mapping | `uv run pytest tests/unit` |
 | Integration | real PostgreSQL, migrations, SSE frame sequence, stop/disconnect, retries, reconciliation | `uv run pytest tests/integration` |
-| Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, delete dialog, API client | `npm run test:coverage` |
+| Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, model picker, delete dialog, API client | `npm run test:coverage` |
 | Code health | file/function size, complexity, MI, coverage floors | see [`docs/plans/code-health-budget.md`](docs/plans/code-health-budget.md) |
 | Browser E2E | send → stream → reload → delete, against a real browser and stack | `npm run e2e` (see below) |
 | Live (opt-in) | real provider streaming and **first-token latency** | `$env:LUCID_LIVE_TESTS=1; uv run pytest tests/live` |
@@ -274,7 +282,7 @@ backend/src/lucid/
   application/   orchestration, context budgeting, attempt lifecycle
   domain/        provider protocol, events, error taxonomy
   persistence/   engine, models, repositories
-  providers/     gemini adapter, fake provider
+  providers/     openai-compatible adapter, gemini adapter, fake provider
 backend/migrations/  Alembic revisions
 frontend/src/    React application
 docs/            specs, plan, ADRs
@@ -303,17 +311,24 @@ folder.
 
 - No authentication or multi-user support. Do not expose this beyond localhost.
 - Single backend process: generation tracking is in-process.
-- The free tier allows **20 requests per day** for `gemini-3.6-flash`. When the
-  quota is exhausted the provider returns 429 with a multi-hour wait; the UI
-  shows the reset time and disables Retry until then. A paid tier or another
-  model avoids this.
+- The free tier is the real ceiling. Groq's free plan allows **1,000 requests/day
+  and 8K tokens/minute**, so long conversations lose the oldest turns sooner than a
+  paid tier would. Gemini's free tier still allows only **20 requests/day** for
+  `gemini-3.6-flash`. When a quota is exhausted the provider returns 429 with the
+  wait; the UI shows the reset time and disables Retry until then.
+- The rate-limit cooldown is per process, not per model, so a 429 on one model
+  briefly blocks the others too.
+- The model list is a startup snapshot of `OPENAI_MODELS`. A model retired upstream
+  keeps appearing in the picker until the configuration changes, and the first call
+  fails.
 - No conversation summarization; long conversations lose their oldest turns
   from the model's context (the data is still stored).
-- Model is fixed by configuration; there is no model picker yet.
 - Partial assistant text is not checkpointed, so a hard crash loses that tail.
 
 ## Data handling
 
 Use only synthetic, non-sensitive content. Free-tier provider traffic may be used
-to improve the provider's products. Requests are sent with `store=false` so no
-provider-side interaction state is retained beyond the request.
+to improve the provider's products. Gemini requests are sent with `store=false` so
+no provider-side interaction state is retained beyond the request; the
+OpenAI-compatible endpoint is stateless by construction, because every call
+carries the bounded history.

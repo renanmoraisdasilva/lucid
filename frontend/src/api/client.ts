@@ -4,6 +4,7 @@ import type {
   ConversationListResponse,
   DashboardData,
   DashboardRange,
+  ModelsResponse,
   StreamEvent,
 } from "./types";
 
@@ -55,6 +56,10 @@ export function listConversations(
   });
 }
 
+export function getModels(signal?: AbortSignal): Promise<ModelsResponse> {
+  return requestJson<ModelsResponse>("/api/models", { signal });
+}
+
 export function getConversation(id: string, signal?: AbortSignal): Promise<ConversationDetail> {
   return requestJson<ConversationDetail>(`/api/conversations/${id}`, { signal });
 }
@@ -95,6 +100,7 @@ async function streamResponse(
 export function streamChat(options: {
   conversationId: string | null;
   content: string;
+  modelId: string | null;
   signal?: AbortSignal;
 }): Promise<AsyncGenerator<StreamEvent>> {
   return streamResponse("/api/chat", {
@@ -103,6 +109,7 @@ export function streamChat(options: {
     body: JSON.stringify({
       conversation_id: options.conversationId,
       content: options.content,
+      model_id: options.modelId,
     }),
     signal: options.signal,
   });
@@ -111,10 +118,16 @@ export function streamChat(options: {
 export function streamRetry(options: {
   conversationId: string;
   messageId: string;
+  modelId: string | null;
   signal?: AbortSignal;
 }): Promise<AsyncGenerator<StreamEvent>> {
   return streamResponse(
     `/api/conversations/${options.conversationId}/messages/${options.messageId}/retry`,
-    { method: "POST", signal: options.signal },
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model_id: options.modelId }),
+      signal: options.signal,
+    },
   );
 }
