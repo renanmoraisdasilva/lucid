@@ -8,8 +8,9 @@ Verified against google-genai 2.34.0 on 2026-10-29; see
 ``docs/architecture/gemini-adapter-notes.md``.
 """
 
+import re
 from collections.abc import AsyncIterator, Mapping
-from typing import Any, cast
+from typing import Any, Final, cast
 
 from google import genai
 from google.genai import types
@@ -210,7 +211,7 @@ class GeminiProvider:
 
 def _from_status(status: int, detail: str) -> ProviderError:
     if status == 429:
-        return ProviderRateLimited(detail=detail)
+        return ProviderRateLimited(detail=detail, retry_after_seconds=_retry_after_seconds(detail))
     if status in (408, 504):
         return ProviderTimeout(detail=detail)
     if status >= 500:
@@ -218,6 +219,24 @@ def _from_status(status: int, detail: str) -> ProviderError:
     if 400 <= status < 500:
         return ProviderInvalidRequest(detail=detail)
     return ProviderUnavailable(detail=detail)
+
+
+_RETRY_HINT_PATTERNS: Final = (
+    re.compile(r"retry in ([\d.]+)\s*s", re.IGNORECASE),
+    re.compile(r'"retryDelay"\s*:\s*"([\d.]+)s"', re.IGNORECASE),
+)
+
+
+def _retry_after_seconds(detail: str) -> float | None:
+    """Extract the provider's suggested wait from a 429 payload."""
+    for pattern in _RETRY_HINT_PATTERNS:
+        match = pattern.search(detail)
+        if match is not None:
+            try:
+                return float(match.group(1))
+            except ValueError:  # pragma: no cover - regex only captures numbers
+                return None
+    return None
 
 
 def _translate_stream_error(error: object | None) -> ProviderError:

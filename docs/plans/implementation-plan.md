@@ -391,7 +391,7 @@ Message semantics:
 | `generation_in_progress` | 409 | no | `details.attempt_id` |
 | `generation_already_completed` | 409 | no | Retry after success |
 | `context_too_large` | 422 | no | Even the newest message plus system prompt exceeds budget |
-| `provider_rate_limited` | stream | yes | 429 / quota |
+| `provider_rate_limited` | stream | yes | 429/quota; carries `retry_after_seconds` when the provider hints a wait |
 | `provider_timeout` | stream | yes | Request or idle timeout |
 | `provider_unavailable` | stream | yes | 5xx, connection reset, `gateway_timeout` |
 | `provider_invalid_request` | stream | no | 400-class provider rejection |

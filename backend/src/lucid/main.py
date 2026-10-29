@@ -10,6 +10,7 @@ from lucid.api.errors import install_error_handlers
 from lucid.api.routes_chat import router as chat_router
 from lucid.api.routes_conversations import router as conversations_router
 from lucid.api.routes_health import router as health_router
+from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.prompts import load_system_prompt
 from lucid.application.registry import GenerationRegistry
 from lucid.config import get_settings
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.system_prompt = load_system_prompt(settings.system_prompt_path)
     app.state.session_factory = get_session_factory()
     app.state.registry = GenerationRegistry()
+    app.state.cooldown = RateLimitCooldown()
 
     if settings.reconcile_on_startup:
         await reconcile_stale_attempts(app.state.session_factory)

@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.application.context import ContextBudget, select_history
+from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus, Role
@@ -30,6 +31,7 @@ from lucid.domain.errors import (
     EmptyProviderResponse,
     FirstTokenTimeout,
     ProviderError,
+    ProviderRateLimited,
 )
 from lucid.domain.provider import (
     ChatProvider,
@@ -213,6 +215,7 @@ async def stream_generation(
     context_budget: ContextBudget | None = None,
     retry_policy: RetryPolicy | None = None,
     first_token_timeout: float | None = None,
+    cooldown: RateLimitCooldown | None = None,
 ) -> AsyncGenerator[GenerationEvent, None]:
     """Yield the application stream events for one generation."""
     budget = context_budget or ContextBudget()
@@ -238,6 +241,12 @@ async def stream_generation(
         )
 
         try:
+            # Respect the provider's cool-down instead of calling into a 429 again.
+            if cooldown is not None:
+                remaining = cooldown.remaining()
+                if remaining > 0:
+                    raise ProviderRateLimited(retry_after_seconds=remaining)
+
             async with session_factory() as session:
                 history = await MessageRepository(session).list_for_conversation(
                     prepared.conversation_id
@@ -284,6 +293,8 @@ async def stream_generation(
             if not buffer and not stopped:
                 raise EmptyProviderResponse()
         except ProviderError as error:
+            if isinstance(error, ProviderRateLimited) and cooldown is not None:
+                cooldown.record(error.retry_after_seconds)
             finalized = True
             finalized_turn = await _finalize(
                 session_factory,
@@ -302,6 +313,7 @@ async def stream_generation(
                     "retryable": error.retryable,
                     "attempt_id": str(prepared.attempt_id),
                     "assistant_message_id": _optional_id(finalized_turn.assistant_message_id),
+                    "retry_after_seconds": error.retry_after_seconds,
                 },
             )
             return
@@ -396,6 +408,10 @@ async def _stream_with_retries(
             # multiplies the wait. The user still gets a retry action.
             raise
         except ProviderError as error:
+            if isinstance(error, ProviderRateLimited) and (error.retry_after_seconds or 0) > 2.0:
+                # A hint of several seconds means retrying now would only extend
+                # the limit; surface it to the user instead.
+                raise
             if not policy.is_retryable(error, has_output=emitted):
                 raise
             if retry_index >= policy.max_retries:

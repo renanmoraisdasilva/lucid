@@ -170,6 +170,39 @@ def test_http_status_maps_to_domain_errors(status: int, expected: type[Exception
     assert translated.detail == "provider said no"
 
 
+def test_rate_limit_message_retry_hint_is_parsed() -> None:
+    error = SimpleNamespace(
+        status_code=429,
+        message="Error code: 429 - {'error': {'message': 'Please retry in 21.2s.'}}",
+    )
+
+    translated = classify_exception(error)  # type: ignore[arg-type]
+
+    assert isinstance(translated, ProviderRateLimited)
+    assert translated.retry_after_seconds == 21.2
+
+
+def test_rate_limit_retry_delay_field_is_parsed() -> None:
+    error = SimpleNamespace(
+        status_code=429,
+        message='{"error": {"details": [{"retryDelay": "7s"}]}}',
+    )
+
+    translated = classify_exception(error)  # type: ignore[arg-type]
+
+    assert isinstance(translated, ProviderRateLimited)
+    assert translated.retry_after_seconds == 7.0
+
+
+def test_rate_limit_without_hint_has_no_wait() -> None:
+    error = SimpleNamespace(status_code=429, message="quota exceeded")
+
+    translated = classify_exception(error)  # type: ignore[arg-type]
+
+    assert isinstance(translated, ProviderRateLimited)
+    assert translated.retry_after_seconds is None
+
+
 def test_timeout_class_name_is_recognised() -> None:
     class APITimeoutError(Exception):
         pass

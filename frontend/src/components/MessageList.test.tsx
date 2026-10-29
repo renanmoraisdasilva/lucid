@@ -145,6 +145,7 @@ describe("MessageList", () => {
         message: "The model is rate limited right now.",
         retryable: true,
         messageId: null,
+        retryAfterSeconds: null,
       },
     });
 
@@ -153,6 +154,22 @@ describe("MessageList", () => {
     await user.click(buttons[buttons.length - 1]);
 
     expect(onRetry).toHaveBeenCalledWith("u1");
+  });
+
+  it("counts down and disables retry during the provider cool-down", () => {
+    renderList({
+      error: {
+        code: "provider_rate_limited",
+        message: "The model is rate limited right now.",
+        retryable: true,
+        messageId: null,
+        retryAfterSeconds: 30,
+      },
+    });
+
+    const button = screen.getByRole("button", { name: "Retry in 30s" });
+    expect(button).toBeDisabled();
+    expect(screen.getByText(/rate limited; waiting before trying again/)).toBeInTheDocument();
   });
 
   it("shows the empty state when there is nothing to show", () => {

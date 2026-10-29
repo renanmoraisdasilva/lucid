@@ -5,6 +5,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.registry import GenerationRegistry
 from lucid.domain.errors import ConfigurationError
 from lucid.domain.provider import ChatProvider
@@ -37,6 +38,14 @@ def get_generation_registry(request: Request) -> GenerationRegistry:
     return registry
 
 
+def get_cooldown(request: Request) -> RateLimitCooldown:
+    """The shared provider rate-limit cooldown."""
+    cooldown: object = getattr(request.app.state, "cooldown", None)
+    if not isinstance(cooldown, RateLimitCooldown):
+        raise ConfigurationError("Rate limit cooldown is not initialized")
+    return cooldown
+
+
 def get_session_factory_dependency(
     request: Request,
 ) -> async_sessionmaker[AsyncSession]:
@@ -50,6 +59,7 @@ def get_session_factory_dependency(
 ProviderDep = Annotated[ChatProvider, Depends(get_provider)]
 SystemPromptDep = Annotated[str, Depends(get_system_prompt)]
 RegistryDep = Annotated[GenerationRegistry, Depends(get_generation_registry)]
+CooldownDep = Annotated[RateLimitCooldown, Depends(get_cooldown)]
 SessionFactoryDep = Annotated[
     async_sessionmaker[AsyncSession], Depends(get_session_factory_dependency)
 ]

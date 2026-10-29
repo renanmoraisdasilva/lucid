@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.api.deps import (
+    CooldownDep,
     ProviderDep,
     RegistryDep,
     SessionDep,
@@ -32,6 +33,7 @@ from lucid.application.chat_service import (
     stream_generation,
 )
 from lucid.application.context import ContextBudget
+from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.config import Settings, get_settings
@@ -50,6 +52,7 @@ async def send_message_endpoint(
     system_prompt: SystemPromptDep,
     session_factory: SessionFactoryDep,
     registry: RegistryDep,
+    cooldown: CooldownDep,
 ) -> StreamingResponse:
     """Send a message and stream the reply. Creates the conversation if needed."""
     settings = get_settings()
@@ -72,6 +75,7 @@ async def send_message_endpoint(
         system_prompt=system_prompt,
         session_factory=session_factory,
         registry=registry,
+        cooldown=cooldown,
     )
 
 
@@ -84,6 +88,7 @@ async def retry_message_endpoint(
     system_prompt: SystemPromptDep,
     session_factory: SessionFactoryDep,
     registry: RegistryDep,
+    cooldown: CooldownDep,
 ) -> StreamingResponse:
     """Retry generation for an existing user message."""
     settings = get_settings()
@@ -118,6 +123,7 @@ async def retry_message_endpoint(
         system_prompt=system_prompt,
         session_factory=session_factory,
         registry=registry,
+        cooldown=cooldown,
     )
 
 
@@ -174,6 +180,7 @@ def _stream_response(
     system_prompt: str,
     session_factory: async_sessionmaker[AsyncSession],
     registry: GenerationRegistry,
+    cooldown: RateLimitCooldown,
 ) -> StreamingResponse:
     settings = get_settings()
     events = stream_generation(
@@ -187,6 +194,7 @@ def _stream_response(
         context_budget=_context_budget(settings),
         retry_policy=_retry_policy(settings),
         first_token_timeout=settings.generation_first_token_timeout_seconds,
+        cooldown=cooldown,
     )
 
     async def frames() -> AsyncIterator[str]:

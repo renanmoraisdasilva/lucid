@@ -18,6 +18,7 @@ export interface ChatError {
   message: string;
   retryable: boolean;
   messageId: string | null;
+  retryAfterSeconds: number | null;
 }
 
 export interface ChatController {
@@ -140,6 +141,7 @@ export function useChat(): ChatController {
               message: event.data.message,
               retryable: event.data.retryable,
               messageId: null,
+              retryAfterSeconds: event.data.retry_after_seconds ?? null,
             };
           }
         }
@@ -150,6 +152,7 @@ export function useChat(): ChatController {
             message: caught instanceof Error ? caught.message : "The response stream failed.",
             retryable: true,
             messageId: null,
+            retryAfterSeconds: null,
           };
         }
       } finally {
@@ -195,6 +198,7 @@ export function useChat(): ChatController {
             message: caught instanceof Error ? caught.message : "The message could not be sent.",
             retryable: false,
             messageId: null,
+            retryAfterSeconds: null,
           });
         }
       }
@@ -224,6 +228,7 @@ export function useChat(): ChatController {
             message: caught instanceof Error ? caught.message : "Retry failed.",
             retryable: true,
             messageId,
+            retryAfterSeconds: null,
           });
         }
       }

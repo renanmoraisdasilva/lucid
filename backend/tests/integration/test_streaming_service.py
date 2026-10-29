@@ -15,10 +15,11 @@ from lucid.application.chat_service import (
     prepare_message,
     stream_generation,
 )
+from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.domain.enums import AttemptStatus
-from lucid.domain.errors import ProviderUnavailable
+from lucid.domain.errors import ProviderRateLimited, ProviderUnavailable
 from lucid.domain.provider import GenerationRequest, ProviderEvent, TextDelta
 from lucid.persistence.tables import GenerationAttempt
 from lucid.providers.fake import FakeProvider, FakeScript
@@ -44,6 +45,7 @@ def _stream(
     *,
     first_token_timeout: float | None = None,
     policy: RetryPolicy | None = None,
+    cooldown: RateLimitCooldown | None = None,
 ) -> AsyncGenerator[GenerationEvent, None]:
     return stream_generation(
         prepared,
@@ -55,6 +57,7 @@ def _stream(
         registry=registry,
         retry_policy=policy,
         first_token_timeout=first_token_timeout,
+        cooldown=cooldown,
     )
 
 
@@ -424,6 +427,56 @@ async def test_deadline_holds_when_the_provider_ignores_cancellation(
 
     attempt = await _attempt(session_factory, prepared.attempt_id)
     assert attempt.status == AttemptStatus.FAILED.value
+
+
+async def test_rate_limit_reports_the_wait_and_is_not_auto_retried(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = FakeProvider(
+        FakeScript(fail_before_first_token=ProviderRateLimited(retry_after_seconds=21.0))
+    )
+    registry = GenerationRegistry()
+    cooldown = RateLimitCooldown()
+    prepared = await _prepare(session, "rate limited", provider)
+
+    events = await _drain(
+        _stream(
+            prepared,
+            provider,
+            session_factory,
+            registry,
+            cooldown=cooldown,
+            policy=RetryPolicy(max_retries=2, base_delay_ms=1, jitter=False),
+        )
+    )
+
+    assert [name for name, _ in events] == ["meta", "error"]
+    error = events[-1][1]
+    assert error["code"] == "provider_rate_limited"
+    assert error["retry_after_seconds"] == 21.0
+    assert len(provider.requests) == 1, "a long retry hint must not be retried immediately"
+    assert cooldown.remaining() > 15
+
+
+async def test_cooldown_prevents_calling_a_rate_limited_provider_again(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    provider = FakeProvider()
+    registry = GenerationRegistry()
+    cooldown = RateLimitCooldown()
+    cooldown.record(30.0)
+    prepared = await _prepare(session, "still cooling", provider)
+
+    events = await _drain(_stream(prepared, provider, session_factory, registry, cooldown=cooldown))
+
+    assert provider.requests == []
+    assert events[-1][0] == "error"
+    assert events[-1][1]["code"] == "provider_rate_limited"
+    remaining = events[-1][1]["retry_after_seconds"]
+    assert isinstance(remaining, float)
+    assert remaining > 0
 
 
 async def test_registry_is_empty_after_each_stream(

@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.registry import GenerationRegistry
 from lucid.config import get_settings
 from lucid.main import create_app
@@ -102,6 +103,7 @@ def app(engine: AsyncEngine, session_factory: async_sessionmaker[AsyncSession]) 
     application.dependency_overrides[get_session] = override_get_session
     application.state.session_factory = session_factory
     application.state.registry = GenerationRegistry()
+    application.state.cooldown = RateLimitCooldown()
     return application
 
 

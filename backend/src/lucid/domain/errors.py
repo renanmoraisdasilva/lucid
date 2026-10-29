@@ -13,9 +13,16 @@ class ProviderError(Exception):
     retryable: bool = False
     default_message: str = "The model request failed."
 
-    def __init__(self, message: str | None = None, *, detail: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        detail: str | None = None,
+        retry_after_seconds: float | None = None,
+    ) -> None:
         super().__init__(message or self.default_message)
         self.detail = detail
+        self.retry_after_seconds = retry_after_seconds
 
 
 class ProviderRateLimited(ProviderError):

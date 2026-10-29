@@ -71,6 +71,45 @@ function WaitingIndicator() {
   );
 }
 
+/** Retry action that respects the provider's cool-down. */
+function RetryAction({
+  retryAfterSeconds,
+  disabled,
+  onRetry,
+}: {
+  retryAfterSeconds: number | null;
+  disabled: boolean;
+  onRetry: () => void;
+}) {
+  const [remaining, setRemaining] = useState(() => Math.ceil(retryAfterSeconds ?? 0));
+
+  useEffect(() => {
+    if (remaining <= 0) {
+      return;
+    }
+    const id = window.setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(id);
+  }, [remaining]);
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={disabled || remaining > 0}
+        className="rounded-lg border border-surface-border-subtle bg-surface-elevated px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {remaining > 0 ? `Retry in ${remaining}s` : "Retry"}
+      </button>
+      {remaining > 0 ? (
+        <span className="text-[12px] text-text-muted">
+          The model is rate limited; waiting before trying again.
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function MessageList({
   messages,
   streamingText,
@@ -203,14 +242,12 @@ export function MessageList({
                 : ""}
             </p>
             {error.retryable && lastUserMessage ? (
-              <button
-                type="button"
-                onClick={() => onRetry(lastUserMessage.id)}
+              <RetryAction
+                key={`${error.code}-${error.retryAfterSeconds ?? 0}`}
+                retryAfterSeconds={error.retryAfterSeconds}
                 disabled={streaming}
-                className="mt-3 rounded-lg border border-surface-border-subtle bg-surface-elevated px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-surface-hover disabled:opacity-50"
-              >
-                Retry
-              </button>
+                onRetry={() => onRetry(lastUserMessage.id)}
+              />
             ) : null}
           </div>
         ) : null}

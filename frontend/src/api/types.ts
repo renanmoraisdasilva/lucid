@@ -68,6 +68,7 @@ export interface ErrorEvent {
   message: string;
   retryable: boolean;
   attempt_id: string;
+  retry_after_seconds?: number | null;
   assistant_message_id?: string | null;
 }
 
