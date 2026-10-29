@@ -6,8 +6,10 @@ interface SidebarProps {
   currentId: string | null;
   hasMore: boolean;
   loadingMore: boolean;
+  activeView: "chat" | "dashboard";
   onSelect: (id: string) => void;
   onNew: () => void;
+  onDashboard: () => void;
   onDelete: (id: string) => void;
   onLoadMore: () => void;
 }
@@ -18,8 +20,10 @@ export function Sidebar({
   currentId,
   hasMore,
   loadingMore,
+  activeView,
   onSelect,
   onNew,
+  onDashboard,
   onDelete,
   onLoadMore,
 }: SidebarProps) {
@@ -51,6 +55,33 @@ export function Sidebar({
             Ctrl K
           </kbd>
         </button>
+      </div>
+
+      <div className="px-3 pb-2">
+        <button
+          type="button"
+          onClick={onDashboard}
+          aria-current={activeView === "dashboard" ? "page" : undefined}
+          className={[
+            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+            activeView === "dashboard"
+              ? "border border-surface-border-subtle/80 bg-surface-elevated font-medium text-text-primary"
+              : "text-text-secondary hover:bg-surface-elevated/40 hover:text-text-primary",
+          ].join(" ")}
+        >
+          <span
+            aria-hidden="true"
+            className={[
+              "h-1.5 w-1.5 shrink-0 rounded-full",
+              activeView === "dashboard" ? "bg-amber-accent" : "bg-surface-border-subtle",
+            ].join(" ")}
+          />
+          <span>Dashboard</span>
+        </button>
+      </div>
+
+      <div className="px-4">
+        <div className="h-px bg-surface-border" />
       </div>
 
       <nav aria-label="Conversations" className="flex-1 overflow-y-auto px-2 pt-2">

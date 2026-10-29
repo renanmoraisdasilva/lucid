@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   deleteConversation,
   getConversation,
+  getDashboard,
   listConversations,
   stopGeneration,
   streamChat,
   streamRetry,
 } from "./client";
 import type { StreamEvent } from "./types";
+import { dashboardData } from "../test/fixtures/dashboard";
 
 const mockedFetch = vi.fn<typeof fetch>();
 
@@ -61,6 +63,15 @@ describe("conversation requests", () => {
 
     await expect(getConversation("c1")).resolves.toMatchObject({ id: "c1" });
     expect(mockedFetch).toHaveBeenCalledWith("/api/conversations/c1", { signal: undefined });
+  });
+
+  it("fetches dashboard data for a range", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(dashboardData({ range: "24h" })));
+
+    await expect(getDashboard("24h")).resolves.toMatchObject({ range: "24h" });
+    expect(mockedFetch).toHaveBeenCalledWith("/api/dashboard?range=24h", {
+      signal: undefined,
+    });
   });
 
   it("treats a missing conversation on delete as success", async () => {

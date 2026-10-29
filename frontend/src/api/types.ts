@@ -78,3 +78,84 @@ export type StreamEvent =
   | { type: "usage"; data: Usage }
   | { type: "done"; data: DoneEvent }
   | { type: "error"; data: ErrorEvent };
+
+export type DashboardRange = "24h" | "7d" | "30d";
+export type DashboardBucket = "hour" | "day";
+
+export interface DashboardPricing {
+  available: boolean;
+  free_tier: boolean;
+  input_usd_per_million: number | null;
+  output_usd_per_million: number | null;
+}
+
+export interface DashboardOverview {
+  conversations_active: number;
+  conversations_new: number;
+  user_messages: number;
+  attempts: number;
+  completed: number;
+  failed: number;
+  interrupted: number;
+  in_progress: number;
+  success_rate: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  usage_partial: boolean;
+  estimated_cost_usd: number | null;
+  pricing: DashboardPricing;
+}
+
+export interface DashboardTrendPoint {
+  bucket_start: string;
+  attempts: number;
+  completed: number;
+  failed: number;
+  interrupted: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  ttft_ms_p50: number | null;
+  ttft_ms_p95: number | null;
+  duration_ms_p50: number | null;
+  duration_ms_p95: number | null;
+}
+
+export interface DashboardLatencyStats {
+  p50_ms: number | null;
+  p95_ms: number | null;
+  samples: number;
+}
+
+export interface DashboardLatency {
+  ttft: DashboardLatencyStats;
+  duration: DashboardLatencyStats;
+}
+
+export interface DashboardRecentAttempt {
+  attempt_id: string;
+  started_at: string;
+  conversation_id: string;
+  conversation_title: string;
+  status: AttemptStatus;
+  model: string;
+  attempt_no: number;
+  retry_count: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  ttft_ms: number | null;
+  duration_ms: number | null;
+  http_status: number | null;
+  context_tokens: number | null;
+  error_code: string | null;
+  error_message: string | null;
+}
+
+export interface DashboardData {
+  range: DashboardRange;
+  generated_at: string;
+  bucket: DashboardBucket;
+  overview: DashboardOverview;
+  trend: DashboardTrendPoint[];
+  latency: DashboardLatency;
+  recent: DashboardRecentAttempt[];
+}

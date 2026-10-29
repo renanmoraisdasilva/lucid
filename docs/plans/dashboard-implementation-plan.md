@@ -414,17 +414,19 @@ tests pass.
 
 ### D4 — Frontend shell and data
 
-- [ ] App shell/view state, ChatPage extraction, Sidebar entry.
-- [ ] Dashboard API client, types, `useDashboard`, range selector.
-- [ ] Header, 20s refresh, manual refresh, "updated" ticker, stale banner.
-- [ ] Tests: navigation preserves the chat stream, default range, range refetch,
+- [x] App shell/view state, ChatPage extraction, Sidebar entry.
+- [x] Dashboard API client, types, `useDashboard`, range selector.
+- [x] Header, 20s refresh, manual refresh, "updated" ticker, stale banner.
+- [x] Tests: navigation preserves the chat stream, default range, range refetch,
       stale with data, full error without data.
 
 **Exit:** dashboard opens from the sidebar and the chat stream survives navigation.
+**Done 2026-10-29.** 77 frontend tests pass; the KPI grid landed here and D5 is
+now charts only.
 
 ### D5 — Overview and trends
 
-- [ ] Seven KPI cards, including partial usage and cost/free-tier labels.
+- [x] Seven KPI cards, including partial usage and cost/free-tier labels (landed in D4).
 - [ ] `chart.ts` + `ChartFrame` + three chart components.
 - [ ] Tests: formatting, chart geometry, null gaps, real zero buckets, legend and
       sample counts.

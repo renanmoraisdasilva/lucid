@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { dashboardData } from "./test/fixtures/dashboard";
 
 const CONVERSATION_ID = "0192f3c1-0000-7000-8000-000000000001";
 const USER_MESSAGE_ID = "0192f3c1-0000-7000-8000-000000000002";
@@ -104,6 +105,9 @@ function installFetchMock(): void {
           'event: usage\ndata: {"input_tokens":11,"output_tokens":7,"thought_tokens":0,"total_tokens":18}\n\n',
           'event: done\ndata: {"attempt_id":"a1","status":"completed","assistant_message_id":"m1","finish_reason":"stop"}\n\n',
         ]);
+      }
+      if (url.startsWith("/api/dashboard?")) {
+        return jsonResponse(dashboardData());
       }
       if (url.startsWith("/api/conversations?")) {
         return jsonResponse({ items: [conversationSummary], next_cursor: null, has_more: false });
@@ -224,5 +228,25 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
+  });
+
+  it("opens the dashboard without unmounting the chat", async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderApp();
+    await screen.findByRole("button", { name: "Hello Lucid" });
+
+    await user.click(screen.getByRole("button", { name: "Dashboard" }));
+
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(await screen.findByText("92.8%")).toBeInTheDocument();
+    // Hidden, not unmounted: switching views must not abort an in-flight chat stream.
+    expect(screen.getByLabelText("Message Lucid")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hello Lucid" }));
+
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
+    expect(await screen.findByRole("heading", { name: "Hello Lucid" })).toBeInTheDocument();
   });
 });

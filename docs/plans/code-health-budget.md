@@ -282,6 +282,15 @@ trend; the scan is the detail.
 - Warnings: `results.py` MI 38.23 is below the 40 warning line; split it if it grows further. The route's error branch is the only uncovered line.
 - Violations: none.
 
+### D4 health report (2026-10-29)
+
+- Frontend: 77 tests, 2,134 source + 1,445 test lines, **89.4% lines / 81.8% branches** (88.5% statements, 88.7% functions).
+- New client-side files: `DashboardPage` 50, `ChatPage` 34, `OverviewMetrics` 82, `DashboardStates` 64, `DashboardToolbar` 52, `RangeSelector` 43, `useDashboard` 23, `dashboard-format` 52; `App` 89 and `Sidebar` 171.
+- Tests cover the 20-second refetch, range switching, manual refresh, stale-with-data, full error recovery, and retaining the chat component while the dashboard is open.
+- Backend unchanged at 236 tests and 90.6% coverage.
+- Warnings: the sidebar is still a fixed 260 px column; the responsive/off-canvas pass is D7. `failure-text.ts` remains at 36% because several error strings are covered only by chat integration paths.
+- Violations: none.
+
 The report is the answer to "is this getting out of hand?" If a number moves the
 wrong way, the milestone is not done until it is explained or fixed.
 

@@ -1,0 +1,70 @@
+import type { DashboardData } from "../../api/types";
+
+export function dashboardData(overrides: Partial<DashboardData> = {}): DashboardData {
+  return {
+    range: "7d",
+    generated_at: "2026-10-29T15:30:00Z",
+    bucket: "day",
+    overview: {
+      conversations_active: 18,
+      conversations_new: 7,
+      user_messages: 121,
+      attempts: 138,
+      completed: 128,
+      failed: 5,
+      interrupted: 5,
+      in_progress: 0,
+      success_rate: 0.9275,
+      input_tokens: 283100,
+      output_tokens: 83300,
+      usage_partial: true,
+      estimated_cost_usd: 0.29,
+      pricing: {
+        available: true,
+        free_tier: true,
+        input_usd_per_million: 0.3,
+        output_usd_per_million: 2.5,
+      },
+    },
+    trend: [
+      {
+        bucket_start: "2026-10-28T00:00:00Z",
+        attempts: 12,
+        completed: 11,
+        failed: 1,
+        interrupted: 0,
+        input_tokens: 1000,
+        output_tokens: 200,
+        ttft_ms_p50: 450,
+        ttft_ms_p95: null,
+        duration_ms_p50: 2200,
+        duration_ms_p95: null,
+      },
+    ],
+    latency: {
+      ttft: { p50_ms: 483, p95_ms: 1040, samples: 133 },
+      duration: { p50_ms: 2600, p95_ms: 5700, samples: 138 },
+    },
+    recent: [
+      {
+        attempt_id: "a1",
+        started_at: "2026-10-29T10:41:00Z",
+        conversation_id: "c1",
+        conversation_title: "Event-Driven Architecture & Bus",
+        status: "completed",
+        model: "gemini-3.6-flash",
+        attempt_no: 1,
+        retry_count: 0,
+        input_tokens: 8412,
+        output_tokens: 1284,
+        ttft_ms: 486,
+        duration_ms: 2600,
+        http_status: 200,
+        context_tokens: 8412,
+        error_code: null,
+        error_message: null,
+      },
+    ],
+    ...overrides,
+  };
+}

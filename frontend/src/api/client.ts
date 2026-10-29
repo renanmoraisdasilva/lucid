@@ -1,5 +1,11 @@
 import { parseSseFrames } from "./sse";
-import type { ConversationDetail, ConversationListResponse, StreamEvent } from "./types";
+import type {
+  ConversationDetail,
+  ConversationListResponse,
+  DashboardData,
+  DashboardRange,
+  StreamEvent,
+} from "./types";
 
 export class ApiError extends Error {
   readonly code: string;
@@ -51,6 +57,11 @@ export function listConversations(
 
 export function getConversation(id: string, signal?: AbortSignal): Promise<ConversationDetail> {
   return requestJson<ConversationDetail>(`/api/conversations/${id}`, { signal });
+}
+
+export function getDashboard(range: DashboardRange, signal?: AbortSignal): Promise<DashboardData> {
+  const params = new URLSearchParams({ range });
+  return requestJson<DashboardData>(`/api/dashboard?${params.toString()}`, { signal });
 }
 
 export async function deleteConversation(id: string): Promise<void> {
