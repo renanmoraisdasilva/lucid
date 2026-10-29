@@ -2,10 +2,15 @@
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from lucid.domain.enums import AttemptStatus, Role
+
+MessageContent = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=16_000)
+]
 
 
 class UsageOut(BaseModel):
@@ -83,3 +88,22 @@ class ErrorResponse(BaseModel):
     """Top-level error envelope."""
 
     error: ErrorBody
+
+
+class ChatRequest(BaseModel):
+    """Send a message, creating the conversation when no id is given."""
+
+    conversation_id: uuid.UUID | None = None
+    content: MessageContent
+
+
+class ChatResponse(BaseModel):
+    """Complete (non-streaming) reply from the temporary Milestone 3 endpoint."""
+
+    conversation_id: uuid.UUID
+    user_message_id: uuid.UUID
+    attempt_id: uuid.UUID
+    assistant_message_id: uuid.UUID | None = None
+    attempt_status: AttemptStatus
+    content: str
+    usage: UsageOut | None = None

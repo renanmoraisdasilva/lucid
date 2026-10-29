@@ -10,18 +10,19 @@ without hiding behind a framework or an agent library.
 
 ## Status
 
-**Milestone 2 (persistence and conversations) complete.** Conversations, messages,
-and generation attempts are persisted in PostgreSQL with their invariants enforced
-by constraints and indexes. The API can list (cursor-paginated), read, and delete
-conversations. Chat generation, provider integration, and streaming arrive next.
+**Milestone 3 (provider boundary and Gemini adapter) complete.** The application
+talks to Gemini through an application-owned `ChatProvider` protocol, with a
+scripted fake provider for tests. A live call to `gemini-3.5-flash-lite` was
+verified on 2026-10-29: real reply, usage metadata (`127 in / 40 out`), both
+messages persisted. Streaming with SSE is next.
 
 | Milestone | State |
 |---|---|
 | 0 — Design close | ✅ |
 | 1 — Foundation | ✅ |
 | 2 — Persistence and conversations | ✅ |
-| 3 — Provider boundary and Gemini adapter | ⬜ next |
-| 4 — Streaming chat | ⬜ |
+| 3 — Provider boundary and Gemini adapter | ✅ |
+| 4 — Streaming chat | ⬜ next |
 | 5 — Context, usage, resilience | ⬜ |
 | 6 — UI polish and acceptance | ⬜ |
 
@@ -32,6 +33,7 @@ conversations. Chat generation, provider integration, and streaming arrive next.
 | [`docs/specs/001-lucid-specification.md`](docs/specs/001-lucid-specification.md) | What the system must do: scope, non-goals, UX, data model, acceptance criteria |
 | [`docs/plans/implementation-plan.md`](docs/plans/implementation-plan.md) | How it gets built: architecture, DDL, API and SSE contracts, milestones, tests, risks |
 | [`docs/decisions/`](docs/decisions/) | ADRs for the consequential choices (provider, data model, streaming, ids, failures, frontend) |
+| [`docs/architecture/`](docs/architecture/) | Adapter notes: verified SDK behaviour, event shapes, error mapping |
 | [`docs/screen-mockups/`](docs/screen-mockups/) | Static HTML previews of every UI state, plus the shared design tokens and shell |
 
 Read the specification first, then the plan. The ADRs explain the decisions that
@@ -121,6 +123,11 @@ npm run dev
 Open http://127.0.0.1:5173. The page reports `API: ok` when the dev proxy can
 reach the backend.
 
+Configuration is read from the repository-root `.env` first, then `backend/.env`,
+so a local override next to the code wins. `PROVIDER=gemini` requires
+`GEMINI_API_KEY`; `PROVIDER=fake` runs the scripted provider with no key and no
+network access.
+
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/health` | Liveness, no dependency checks |
@@ -128,6 +135,7 @@ reach the backend.
 | `GET /api/conversations` | Cursor-paginated list, most recently updated first |
 | `GET /api/conversations/{id}` | Conversation with messages and attempt metadata |
 | `DELETE /api/conversations/{id}` | Permanent delete, messages and attempts cascade |
+| `POST /api/chat` | Temporary non-streaming reply (Milestone 4 replaces it with SSE) |
 | `/docs` | OpenAPI UI (development convenience) |
 
 Errors use one envelope: `{"error": {"code", "message", "details"}}`.

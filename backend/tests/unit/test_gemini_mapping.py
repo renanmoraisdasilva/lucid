@@ -1,0 +1,189 @@
+"""Gemini adapter mapping and error translation, without network access."""
+
+from types import SimpleNamespace
+
+import pytest
+
+from lucid.domain.enums import Role
+from lucid.domain.errors import (
+    ProviderInvalidRequest,
+    ProviderRateLimited,
+    ProviderStreamError,
+    ProviderTimeout,
+    ProviderUnavailable,
+)
+from lucid.domain.provider import ProviderMessage, StreamCompleted, TextDelta
+from lucid.providers.gemini import (
+    classify_exception,
+    map_event,
+    map_usage,
+    to_step,
+)
+
+
+def _delta(delta_type: str, text: str | None = None) -> SimpleNamespace:
+    return SimpleNamespace(
+        event_type="step.delta", delta=SimpleNamespace(type=delta_type, text=text)
+    )
+
+
+def _completed(status: str, usage: object | None = None) -> SimpleNamespace:
+    return SimpleNamespace(
+        event_type="interaction.completed",
+        interaction=SimpleNamespace(status=status, usage=usage),
+    )
+
+
+def _error(code: str, message: str = "boom") -> SimpleNamespace:
+    return SimpleNamespace(event_type="error", error=SimpleNamespace(code=code, message=message))
+
+
+def test_user_message_maps_to_user_input_step() -> None:
+    step = to_step(ProviderMessage(role=Role.USER, content="hello"))
+
+    assert step == {"type": "user_input", "content": [{"type": "text", "text": "hello"}]}
+
+
+def test_assistant_message_maps_to_model_output_step() -> None:
+    step = to_step(ProviderMessage(role=Role.ASSISTANT, content="hi"))
+
+    assert step == {"type": "model_output", "content": [{"type": "text", "text": "hi"}]}
+
+
+def test_text_delta_is_mapped() -> None:
+    mapped = map_event(_delta("text", "pong"))
+
+    assert isinstance(mapped, TextDelta)
+    assert mapped.text == "pong"
+
+
+def test_thought_and_empty_deltas_are_ignored() -> None:
+    assert map_event(_delta("thought_signature")) is None
+    assert map_event(_delta("text", "")) is None
+
+
+def test_non_terminal_events_are_ignored() -> None:
+    assert map_event(SimpleNamespace(event_type="step.start")) is None
+    assert map_event(SimpleNamespace(event_type="interaction.status_update")) is None
+    assert map_event(SimpleNamespace(event_type="interaction.created")) is None
+
+
+def test_completion_carries_usage() -> None:
+    usage = SimpleNamespace(
+        total_input_tokens=11,
+        total_output_tokens=7,
+        total_thought_tokens=3,
+        total_tokens=21,
+        model_dump=lambda: {"total_tokens": 21},
+    )
+
+    mapped = map_event(_completed("completed", usage))
+
+    assert isinstance(mapped, StreamCompleted)
+    assert mapped.usage is not None
+    assert mapped.usage.input_tokens == 11
+    assert mapped.usage.output_tokens == 7
+    assert mapped.usage.thought_tokens == 3
+    assert mapped.usage.total_tokens == 21
+    assert mapped.usage.raw == {"total_tokens": 21}
+
+
+def test_completion_without_usage_is_allowed() -> None:
+    mapped = map_event(_completed("completed", None))
+
+    assert isinstance(mapped, StreamCompleted)
+    assert mapped.usage is None
+
+
+def test_failed_interaction_raises() -> None:
+    with pytest.raises(ProviderStreamError):
+        map_event(_completed("failed", None))
+
+
+def test_usage_mapping_handles_missing_object() -> None:
+    assert map_usage(None) is None
+
+
+def test_usage_mapping_exposes_unknown_fields_as_none() -> None:
+    usage = map_usage(SimpleNamespace(total_input_tokens=None, total_output_tokens=4))
+
+    assert usage is not None
+    assert usage.input_tokens is None
+    assert usage.output_tokens == 4
+    assert usage.total_tokens is None
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("resource_exhausted", ProviderRateLimited),
+        ("gateway_timeout", ProviderTimeout),
+        ("unavailable", ProviderUnavailable),
+        ("overloaded", ProviderUnavailable),
+        ("invalid_argument", ProviderInvalidRequest),
+        ("not_found", ProviderInvalidRequest),
+        ("something_else", ProviderStreamError),
+    ],
+)
+def test_stream_error_codes_map_to_domain_errors(code: str, expected: type[Exception]) -> None:
+    with pytest.raises(expected):
+        map_event(_error(code))
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (429, ProviderRateLimited),
+        (408, ProviderTimeout),
+        (504, ProviderTimeout),
+        (500, ProviderUnavailable),
+        (503, ProviderUnavailable),
+        (400, ProviderInvalidRequest),
+        (401, ProviderInvalidRequest),
+        (404, ProviderInvalidRequest),
+    ],
+)
+def test_http_status_maps_to_domain_errors(status: int, expected: type[Exception]) -> None:
+    error = SimpleNamespace(status_code=status, message="provider said no")
+
+    translated = classify_exception(error)  # type: ignore[arg-type]
+
+    assert isinstance(translated, expected)
+    assert translated.detail == "provider said no"
+
+
+def test_timeout_class_name_is_recognised() -> None:
+    class APITimeoutError(Exception):
+        pass
+
+    translated = classify_exception(APITimeoutError("timed out"))
+
+    assert isinstance(translated, ProviderTimeout)
+    assert translated.retryable is True
+
+
+def test_connection_class_name_is_recognised() -> None:
+    class APIConnectionError(Exception):
+        pass
+
+    assert isinstance(classify_exception(APIConnectionError("reset")), ProviderUnavailable)
+
+
+def test_validation_error_is_not_retryable() -> None:
+    translated = classify_exception(ValueError("bad shape"))
+
+    assert isinstance(translated, ProviderInvalidRequest)
+    assert translated.retryable is False
+
+
+def test_unknown_error_is_a_stream_error() -> None:
+    assert isinstance(classify_exception(RuntimeError("???")), ProviderStreamError)
+
+
+def test_provider_messages_never_contain_internal_details() -> None:
+    translated = classify_exception(
+        SimpleNamespace(status_code=500, message="internal stack trace detail")
+    )
+
+    assert "stack trace" not in str(translated)
+    assert translated.detail is not None

@@ -7,6 +7,13 @@ TEST_DATABASE_URL.
 
 import asyncio
 import os
+
+# Must run before importing anything from `lucid`: settings are cached on first
+# use and read the developer's .env, which may target a different database.
+from tests.integration.support import database_url
+
+os.environ["DATABASE_URL"] = database_url()
+
 from collections.abc import AsyncIterator, Iterator
 
 import pytest
@@ -22,9 +29,10 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+from lucid.config import get_settings
 from lucid.main import create_app
 from lucid.persistence.db import get_session
-from tests.integration.support import alembic_config, database_url
+from tests.integration.support import alembic_config
 
 
 @pytest.fixture(scope="session")
@@ -36,6 +44,7 @@ def engine() -> Iterator[AsyncEngine]:
     """
     url = database_url()
     os.environ["DATABASE_URL"] = url
+    get_settings.cache_clear()
     test_engine = create_async_engine(url, poolclass=NullPool)
 
     try:
@@ -55,18 +64,23 @@ async def _prepare_database(engine: AsyncEngine) -> None:
     await asyncio.to_thread(command.upgrade, alembic_config(), "head")
 
 
-@pytest.fixture
-async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
-    """A session scoped to one test, with the chat tables emptied afterwards."""
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as db_session:
-        yield db_session
-        await db_session.rollback()
-
+@pytest.fixture(autouse=True)
+async def _clean_database(engine: AsyncEngine) -> AsyncIterator[None]:
+    """Empty the chat tables after every test, whatever fixtures it used."""
+    yield
     async with engine.begin() as connection:
         await connection.execute(
             text("TRUNCATE conversations, generation_attempts, messages CASCADE")
         )
+
+
+@pytest.fixture
+async def session(engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
+    """A session scoped to one test."""
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as db_session:
+        yield db_session
+        await db_session.rollback()
 
 
 @pytest.fixture
