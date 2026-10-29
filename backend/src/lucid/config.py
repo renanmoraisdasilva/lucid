@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -31,23 +31,58 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Root log level.")
     app_env: str = Field(default="local", description="Environment label for logs.")
 
-    provider: Literal["gemini", "fake"] = Field(
-        default="gemini",
-        description="Which ChatProvider implementation to use.",
+    provider: Literal["gemini", "openai_compatible", "fake"] = Field(
+        default="openai_compatible",
+        description="Default ChatProvider implementation.",
     )
-    gemini_api_key: SecretStr | None = Field(default=None, description="Provider credential.")
-    gemini_model: str = Field(default="gemini-3.6-flash", description="Model identifier.")
-    gemini_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
-    gemini_max_output_tokens: int = Field(default=2048, ge=1, le=8192)
+    gemini_api_key: SecretStr | None = Field(default=None, description="Gemini credential.")
+    gemini_model: str = Field(default="gemini-3.6-flash", description="Gemini model identifier.")
+    generation_timeout_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        le=600,
+        validation_alias=AliasChoices("GENERATION_TIMEOUT_SECONDS", "GEMINI_TIMEOUT_SECONDS"),
+    )
+    generation_max_output_tokens: int = Field(
+        default=2048,
+        ge=1,
+        le=8192,
+        validation_alias=AliasChoices("GENERATION_MAX_OUTPUT_TOKENS", "GEMINI_MAX_OUTPUT_TOKENS"),
+    )
     gemini_thinking_level: Literal["minimal", "low", "medium", "high"] | None = Field(
         default="low",
         description=(
             "Provider reasoning effort. 'low' cuts first-token latency from ~25s to "
-            "under a second on gemini-3.6-flash. Set to 'high' for harder questions."
+            "under a second on the flash-lite models. Set to 'high' for harder questions."
         ),
     )
 
-    context_max_input_tokens: int = Field(default=20_000, ge=1_000)
+    openai_base_url: str = Field(
+        default="https://api.groq.com/openai/v1",
+        description="Any OpenAI-compatible endpoint (Groq, Cerebras, OpenRouter, Ollama).",
+    )
+    openai_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "GROQ_API_KEY"),
+        description="OpenAI-compatible credential (either env name is accepted).",
+    )
+    openai_models: str = Field(
+        default="openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b",
+        description="Comma-separated model ids offered by the picker for this endpoint.",
+    )
+    openai_model: str | None = Field(
+        default=None,
+        description="Default model for this endpoint; falls back to the first listed.",
+    )
+
+    context_max_input_tokens: int = Field(
+        default=6_000,
+        ge=1_000,
+        description=(
+            "History + system prompt budget. Kept under Groq's free-tier 8K TPM; "
+            "raise it for Gemini or a paid tier."
+        ),
+    )
     context_reserved_output_tokens: int = Field(default=4_096, ge=0)
     context_safety_margin_tokens: int = Field(default=512, ge=0)
     context_max_messages: int = Field(default=60, ge=1, le=1_000)
@@ -70,6 +105,19 @@ class Settings(BaseSettings):
     reconcile_on_startup: bool = True
 
     system_prompt_path: Path = Field(default=BACKEND_DIR / "prompts" / "system.md")
+
+    @property
+    def openai_model_list(self) -> list[str]:
+        """Model ids offered by the OpenAI-compatible endpoint."""
+        models = [model.strip() for model in self.openai_models.split(",") if model.strip()]
+        return models or ["openai/gpt-oss-120b"]
+
+    @property
+    def default_openai_model(self) -> str:
+        """The endpoint's default model, falling back to the first listed."""
+        if self.openai_model and self.openai_model in self.openai_model_list:
+            return self.openai_model
+        return self.openai_model_list[0]
 
 
 @lru_cache

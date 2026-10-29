@@ -1,6 +1,6 @@
 """Streaming chat endpoints: send, retry, stop.
 
-The response is SSE. Errors detected before the stream starts (404, 409, 422)
+The response is SSE. Errors detected before the stream starts (400, 404, 409, 422)
 use the normal JSON error envelope; anything after `meta` is an `error` event.
 """
 
@@ -12,15 +12,16 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from lucid.api.deps import (
+    CatalogDep,
     CooldownDep,
-    ProviderDep,
+    ProvidersDep,
     RegistryDep,
     SessionDep,
     SessionFactoryDep,
     SystemPromptDep,
 )
 from lucid.api.errors import ApiError
-from lucid.api.schemas import ChatRequest, StopGenerationResponse
+from lucid.api.schemas import ChatRequest, RetryRequest, StopGenerationResponse
 from lucid.api.sse import SSE_HEADERS, SSE_MEDIA_TYPE, encode_event
 from lucid.application.chat_service import (
     ConversationNotFoundError,
@@ -34,12 +35,15 @@ from lucid.application.chat_service import (
 )
 from lucid.application.context import ContextBudget
 from lucid.application.cooldown import RateLimitCooldown
+from lucid.application.models import ModelCatalog, ModelOption
 from lucid.application.registry import GenerationRegistry
 from lucid.application.retry import RetryPolicy
 from lucid.config import Settings, get_settings
 from lucid.domain.enums import AttemptStatus
+from lucid.domain.errors import ConfigurationError
 from lucid.domain.provider import ChatProvider
 from lucid.persistence.repositories import AttemptRepository
+from lucid.providers.factory import ProviderRegistry
 
 router = APIRouter(tags=["chat"])
 
@@ -48,21 +52,23 @@ router = APIRouter(tags=["chat"])
 async def send_message_endpoint(
     payload: ChatRequest,
     session: SessionDep,
-    provider: ProviderDep,
     system_prompt: SystemPromptDep,
     session_factory: SessionFactoryDep,
     registry: RegistryDep,
     cooldown: CooldownDep,
+    catalog: CatalogDep,
+    providers: ProvidersDep,
 ) -> StreamingResponse:
     """Send a message and stream the reply. Creates the conversation if needed."""
-    settings = get_settings()
+    option, provider = _resolve_model(payload.model_id, catalog, providers)
+
     try:
         prepared = await prepare_message(
             session,
             content=payload.content,
             conversation_id=payload.conversation_id,
             provider_name=provider.name,
-            model=settings.gemini_model,
+            model=option.model,
         )
     except ConversationNotFoundError as error:
         raise _conversation_not_found() from error
@@ -72,6 +78,7 @@ async def send_message_endpoint(
     return _stream_response(
         prepared,
         provider=provider,
+        model=option.model,
         system_prompt=system_prompt,
         session_factory=session_factory,
         registry=registry,
@@ -84,21 +91,26 @@ async def retry_message_endpoint(
     conversation_id: uuid.UUID,
     message_id: uuid.UUID,
     session: SessionDep,
-    provider: ProviderDep,
     system_prompt: SystemPromptDep,
     session_factory: SessionFactoryDep,
     registry: RegistryDep,
     cooldown: CooldownDep,
+    catalog: CatalogDep,
+    providers: ProvidersDep,
+    payload: RetryRequest | None = None,
 ) -> StreamingResponse:
     """Retry generation for an existing user message."""
-    settings = get_settings()
+    option, provider = _resolve_model(
+        payload.model_id if payload is not None else None, catalog, providers
+    )
+
     try:
         prepared = await prepare_retry(
             session,
             conversation_id=conversation_id,
             message_id=message_id,
             provider_name=provider.name,
-            model=settings.gemini_model,
+            model=option.model,
         )
     except ConversationNotFoundError as error:
         raise _conversation_not_found() from error
@@ -120,6 +132,7 @@ async def retry_message_endpoint(
     return _stream_response(
         prepared,
         provider=provider,
+        model=option.model,
         system_prompt=system_prompt,
         session_factory=session_factory,
         registry=registry,
@@ -173,10 +186,36 @@ async def stop_generation_endpoint(
     )
 
 
+def _resolve_model(
+    model_id: str | None,
+    catalog: ModelCatalog,
+    providers: ProviderRegistry,
+) -> tuple[ModelOption, ChatProvider]:
+    option = catalog.find(model_id)
+    if option is None:
+        raise ApiError(
+            "model_not_available",
+            "That model is not available.",
+            status_code=400,
+            details={"model_id": model_id},
+        )
+    try:
+        provider = providers.get(option.provider)
+    except ConfigurationError as error:
+        raise ApiError(
+            "model_not_available",
+            "That model is not configured on the server.",
+            status_code=400,
+            details={"model_id": option.id},
+        ) from error
+    return option, provider
+
+
 def _stream_response(
     prepared: PreparedGeneration,
     *,
     provider: ChatProvider,
+    model: str,
     system_prompt: str,
     session_factory: async_sessionmaker[AsyncSession],
     registry: GenerationRegistry,
@@ -188,8 +227,8 @@ def _stream_response(
         session_factory=session_factory,
         provider=provider,
         system_prompt=system_prompt,
-        model=settings.gemini_model,
-        max_output_tokens=settings.gemini_max_output_tokens,
+        model=model,
+        max_output_tokens=settings.generation_max_output_tokens,
         registry=registry,
         context_budget=_context_budget(settings),
         retry_policy=_retry_policy(settings),

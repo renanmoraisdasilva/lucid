@@ -30,10 +30,12 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 from lucid.application.cooldown import RateLimitCooldown
+from lucid.application.models import ModelCatalog, ModelOption
 from lucid.application.registry import GenerationRegistry
-from lucid.config import get_settings
+from lucid.config import Settings, get_settings
 from lucid.main import create_app
 from lucid.persistence.db import get_session
+from lucid.providers.factory import ProviderRegistry
 from tests.integration.support import alembic_config
 
 
@@ -104,6 +106,21 @@ def app(engine: AsyncEngine, session_factory: async_sessionmaker[AsyncSession]) 
     application.state.session_factory = session_factory
     application.state.registry = GenerationRegistry()
     application.state.cooldown = RateLimitCooldown()
+    application.state.system_prompt = "You are a test assistant."
+    application.state.catalog = ModelCatalog(
+        options=(
+            ModelOption(
+                id="fake:fake-model",
+                label="Scripted provider",
+                provider="fake",
+                model="fake-model",
+            ),
+        ),
+        default_id="fake:fake-model",
+    )
+    application.state.providers = ProviderRegistry(
+        Settings(_env_file=None, provider="fake")  # type: ignore[call-arg]
+    )
     return application
 
 

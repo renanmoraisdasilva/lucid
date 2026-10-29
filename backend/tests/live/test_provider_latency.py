@@ -32,7 +32,7 @@ def provider() -> GeminiProvider:
     return GeminiProvider(
         api_key=settings.gemini_api_key.get_secret_value(),
         model=settings.gemini_model,
-        timeout_seconds=settings.gemini_timeout_seconds,
+        timeout_seconds=settings.generation_timeout_seconds,
         max_output_tokens=64,
         thinking_level=settings.gemini_thinking_level,
     )
