@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from lucid.api.errors import install_error_handlers
 from lucid.api.routes_chat import router as chat_router
 from lucid.api.routes_conversations import router as conversations_router
+from lucid.api.routes_dashboard import router as dashboard_router
 from lucid.api.routes_health import router as health_router
 from lucid.application.cooldown import RateLimitCooldown
 from lucid.application.dashboard.retention import (
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api")
     app.include_router(conversations_router, prefix="/api")
     app.include_router(chat_router, prefix="/api")
+    app.include_router(dashboard_router, prefix="/api")
     return app
 
 

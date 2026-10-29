@@ -273,6 +273,15 @@ trend; the scan is the detail.
 - Warning: the startup/24-hour wiring in `main.py` is verified by the retention function tests and the startup checklist, not by a lifespan unit test.
 - Violations: none.
 
+### D3 health report (2026-10-29)
+
+- Backend: 236 tests, 4,706 source + 4,282 test lines, **90.6% coverage** (76.4% branches), no C–F functions, minimum MI 38.23.
+- New modules: `dashboard_queries` 113, `dashboard_sql` 53, `dashboard_trend_queries` 108, `dashboard_recent` 67, `service` 194, `results` 92, `query_rows` 75, `buckets` 49, `routes_dashboard` 129.
+- Query and route coverage: overview 95%, trend 92%, recent 92%, route 96%, service 96%.
+- Frontend unchanged at 63 tests, 1,618 source + 1,169 test lines, 87.4% lines / 78.3% branches.
+- Warnings: `results.py` MI 38.23 is below the 40 warning line; split it if it grows further. The route's error branch is the only uncovered line.
+- Violations: none.
+
 The report is the answer to "is this getting out of hand?" If a number moves the
 wrong way, the milestone is not done until it is explained or fixed.
 

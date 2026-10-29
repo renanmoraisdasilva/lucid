@@ -21,7 +21,7 @@ is the authority.
 | # | Decision | Consequence |
 |---|---|---|
 | 1 | **One aggregate endpoint**, `GET /api/dashboard?range=7d` | One round trip per refresh; a failed refresh leaves the previous payload intact. The endpoint is small (~25 recent rows), so splitting it would add loading states without a benefit. |
-| 2 | Ranges are **rolling windows** ending at request time: `24h`, `7d`, `30d`; default `7d` | The date range in the toolbar is explicit (`Oct 23 – Oct 29`). An invalid range returns the standard `422` envelope. |
+| 2 | **24h is a rolling 24-hour window**; 7d and 30d are **calendar-day windows ending today (UTC)**; default `7d` | The chart has exactly 24, 7 or 30 buckets and today is partial for daily ranges. An invalid range returns the standard `422` envelope. |
 | 3 | Buckets are **hourly for 24h, daily for 7/30d, in UTC** | The axis labels say UTC dates. Table timestamps are rendered in browser local time. Documented limitation; a per-user timezone is a later decision. |
 | 4 | An attempt is a **user-visible attempt** | Manual retry creates a row (`attempt_no`); automatic retries increment `retry_count` inside the row, per ADR-005. |
 | 5 | Overview counts are **terminal attempts started in the window** | In-progress attempts do not inflate the count or the success-rate denominator. If any exist, the response reports them separately and the UI ignores them. |
@@ -167,8 +167,12 @@ retention.
     "output_tokens": 83300,
     "usage_partial": true,
     "estimated_cost_usd": 0.29,
-    "pricing_available": true,
-    "free_tier": true
+    "pricing": {
+      "available": true,
+      "free_tier": true,
+      "input_usd_per_million": 0.3,
+      "output_usd_per_million": 2.5
+    }
   },
   "bucket": "day",
   "trend": [
@@ -278,21 +282,25 @@ fixed at D3. The prerequisite refactor is separate and not counted here.
 | `persistence/tables.py` (edit) | four columns, checks, indexes | +8 | exempt |
 | `migrations/versions/0003_dashboard_telemetry.py` | schema + indexes | 60 | exempt |
 | `application/context.py` (edit) | return selection + estimate | +15 | 250 |
-| `application/chat/telemetry.py` | per-attempt capture (first token, status, retries, context) | 60 | 250 |
-| `application/chat/events.py` | meta/usage/done/error payload construction | 100 | 250 |
-| `application/chat/streaming.py` (edit) | use telemetry; events extracted (final ~200) | 200 | 300 |
+| `application/chat/telemetry.py` | per-attempt capture (first token, status, retries, context) | 26 | 250 |
+| `application/chat/events.py` | meta/usage/done/error payload construction | 75 | 250 |
+| `application/chat/streaming.py` (edit) | use telemetry; events extracted | 242 | 300 |
 | `application/chat/retries.py` (edit) | retry counter | +10 | 250 |
 | `application/chat/finalize.py` (edit) | persist telemetry | +20 | 250 |
 | `domain/errors.py` (edit) | `http_status` | +6 | 300 |
 | `providers/gemini.py` (edit) | map provider status | +15 | 350 |
-| `application/dashboard/service.py` | orchestration, partial flags | 180 | 300 |
-| `application/dashboard/results.py` | internal result types | 90 | 250 |
-| `application/dashboard/buckets.py` | range → buckets, gap filling | 80 | 250 |
-| `application/dashboard/pricing.py` | estimate, availability | 60 | 250 |
-| `application/dashboard/retention.py` | 30-day cleanup | 70 | 250 |
-| `persistence/dashboard_queries.py` | SQL aggregation | 220 | 300 |
-| `api/routes_dashboard.py` | one GET endpoint | 110 | 300 |
-| `api/schemas.py` (edit) | response models | +110 | 300 |
+| `application/dashboard/service.py` | orchestration, partial flags | 194 | 300 |
+| `application/dashboard/results.py` | final result types | 92 | 250 |
+| `application/dashboard/query_rows.py` | raw query row types | 75 | 250 |
+| `application/dashboard/buckets.py` | range → buckets | 49 | 250 |
+| `application/dashboard/pricing.py` | estimate, availability | 56 | 250 |
+| `application/dashboard/retention.py` | 30-day cleanup | 59 | 250 |
+| `persistence/dashboard_queries.py` | overview SQL | 113 | 300 |
+| `persistence/dashboard_sql.py` | shared SQL expressions | 53 | 300 |
+| `persistence/dashboard_trend_queries.py` | trend and latency SQL | 108 | 300 |
+| `persistence/dashboard_recent.py` | recent-attempts SQL | 67 | 300 |
+| `api/routes_dashboard.py` | one GET endpoint | 129 | 300 |
+| `api/schemas.py` (edit) | response models | +156 | 300 |
 | `main.py` (edit) | retention lifespan task | +20 | 300 |
 | `config.py` (edit) | pricing settings | +8 | 250 |
 
@@ -393,14 +401,16 @@ the environment.
 
 ### D3 — Aggregation and API
 
-- [ ] `dashboard_queries.py`, `buckets.py`, `results.py`, `service.py`.
-- [ ] `routes_dashboard.py` + schemas.
-- [ ] Tests: empty range, exact boundaries, in-progress exclusion, terminal
+- [x] `dashboard_queries.py`, `buckets.py`, `results.py`, `service.py`.
+- [x] `routes_dashboard.py` + schemas.
+- [x] Tests: empty range, exact boundaries, in-progress exclusion, terminal
       counts, percentile threshold, gap filling, recent limit, invalid range,
       no content fields.
 
 **Exit:** `GET /api/dashboard?range=7d` matches the contract and all aggregation
 tests pass.
+**Done 2026-10-29.** 236 backend tests pass; see the D3 report in
+`code-health-budget.md` §4.3.
 
 ### D4 — Frontend shell and data
 
