@@ -1,7 +1,7 @@
 # Lucid — Product & Technical Specification
 
 **Status:** Approved for implementation  
-**Version:** 0.4  
+**Version:** 0.5  
 **Last updated:** 2026-10-29
 
 > This specification records the decisions made during the interview. Items marked
@@ -28,6 +28,15 @@
 > 2.2s/14.6s for 3.6-flash against 38.5s/42.1s/32.6s for lite. See the ADR-001
 > amendment and `docs/architecture/gemini-adapter-notes.md`. Everything else in
 > this specification is unchanged.
+>
+> **v0.5 (2026-10-29):** A second, OpenAI-compatible provider (Groq by default)
+> becomes the default, and a **model picker** enters scope. The Gemini free tier
+> allows 20 requests per day, which made the application unusable outside a single
+> demonstration. The non-goals for "multiple model providers" and "user-selectable
+> models" are therefore lifted; provider *fallback* and generation parameters
+> (temperature, etc.) remain out of scope. The context budget default drops from
+> 20,000 to 6,000 input tokens to fit Groq's 8K tokens/minute free-tier ceiling.
+> See ADR-007. Sections amended below are marked inline.
 
 ## 1. Purpose
 
@@ -38,7 +47,7 @@ The first version will run locally through Docker Compose.
 ## 2. Goals
 
 - [ ] Provide a usable chat interface for sending messages and receiving AI responses.
-- [ ] Integrate Gemini as the initial LLM provider.
+- [ ] Integrate an LLM provider: Gemini first, then an OpenAI-compatible endpoint (Groq) as the default (§6.1, v0.5).
 - [ ] Stream responses to the browser from the beginning.
 - [ ] Persist conversations, messages, and generation attempts in PostgreSQL.
 - [ ] Handle provider failures and interrupted streams predictably.
@@ -54,8 +63,10 @@ The following are explicitly not part of the chatbot MVP:
 - [ ] RAG, document ingestion, embeddings, vector search, or citations.
 - [ ] Tool/function calling, agents, or external actions.
 - [ ] File uploads, image input, audio, or voice.
-- [ ] Multiple model providers or provider fallback.
-- [ ] User-selectable models or generation parameters.
+- [ ] ~~Multiple model providers or provider fallback.~~ **Amended (v0.5):** a
+  second provider is in scope; provider *fallback* remains out of scope.
+- [ ] ~~User-selectable models or generation parameters.~~ **Amended (v0.5):**
+  user-selectable models are in scope; generation parameters are not.
 - [ ] Editing previous user messages.
 - [ ] Regenerating assistant responses.
 - [ ] Queuing multiple messages while a response is running.
@@ -78,7 +89,8 @@ These features may be considered in later projects or iterations, but should not
 - **Frontend:** React + TypeScript.
 - **Backend:** Python + FastAPI.
 - **Database:** PostgreSQL.
-- **LLM provider:** Gemini, configured on the backend.
+- **LLM provider:** an OpenAI-compatible endpoint (Groq by default) or Gemini, both
+  configured on the backend (v0.5).
 - **System prompt:** Stored in a backend configuration file and version-controlled.
 - **Conversation history:** Persistent.
 - **Conversation creation:** A conversation is created only when its first user message is submitted. Clicking “New chat” alone does not create a database record.
@@ -86,7 +98,7 @@ These features may be considered in later projects or iterations, but should not
 ### Constraints
 
 - Use synthetic or non-sensitive content. Do not send secrets, personal information, or confidential data to the free-tier model service.
-- Keep provider credentials on the backend. Never expose the Gemini API key to the browser.
+- Keep provider credentials on the backend. Never expose a provider API key to the browser.
 - Prefer hosted inference for this project; do not require a local model to run continuously.
 - Avoid unnecessary paid services and cloud infrastructure during the MVP.
 
@@ -138,16 +150,22 @@ The visual reference is [`../screen-mockups/`](../screen-mockups/): `home.html`,
   group label may repeat across a paginated page boundary.
 - [ ] Use pagination to load the conversation list, fetching older entries as needed.
 - [ ] Do not implement conversation search.
-- [ ] Generate the initial conversation title deterministically from the first user message; do not make an additional Gemini call for title generation.
+- [ ] Generate the initial conversation title deterministically from the first user message; do not make an additional model call for title generation.
 - [ ] Store the full generated title and truncate it only in the sidebar UI.
 - [ ] **Resolved (v0.2):** Apply a maximum title length of **80 Unicode code points** when saving. Normalize whitespace, collapse runs, trim, then cut at the last space inside the final 20 code points when that avoids a mid-word cut; otherwise hard-cut at 80. Fall back to `New chat` if the message normalizes to empty. The sidebar additionally truncates visually with CSS ellipsis.
 
 ### 5.4 Model configuration
 
-- [ ] Use one Gemini model configured on the backend.
-- [ ] Do not expose a model selector in the UI.
+- [ ] Offer the models of every provider that has a key configured on the backend,
+  from a catalogue served by the API (§6.4).
+- [ ] Let the user choose the model in the composer; the choice applies to the next
+  request and to Retry, and is remembered in the browser.
+- [ ] **Amended (v0.5):** Send the selected model with each request. A missing
+  selection uses the configured default; an unknown id is rejected with `400`
+  before anything is persisted.
+- [ ] Record the model actually used on the generation attempt.
 - [ ] Do not expose temperature or other generation controls in the UI.
-- [ ] Keep model name and generation settings in backend configuration.
+- [ ] Keep the model list and generation settings in backend configuration.
 - [ ] Keep the system prompt in a separate, version-controlled backend configuration file.
 - [ ] Do not build a database-managed prompt editor.
 
@@ -173,7 +191,7 @@ The visual reference is [`../screen-mockups/`](../screen-mockups/): `home.html`,
 
 Confirmed:
 - [ ] Preserve the full conversation history in PostgreSQL.
-- [ ] Send only a bounded subset of recent conversation content to Gemini.
+- [ ] Send only a bounded subset of recent conversation content to the model.
 - [ ] Make the context limit configurable.
 - [ ] Track token usage when the provider returns usage metadata.
 - [ ] Detect when a conversation is approaching its configured context budget.
@@ -184,8 +202,10 @@ Confirmed:
 fixed number of messages. Reserve budget for the system prompt and the expected
 assistant response, then include the most recent messages that fit.
 
-- Default input budget: **20,000 tokens** for system prompt + history.
-- Reserved for the response: **4,096 tokens**; safety margin: **512 tokens**.
+- Default input budget: **6,000 tokens** for system prompt + history. **Amended
+  (v0.5):** was 20,000; lowered to fit Groq's 8K tokens/minute free-tier ceiling.
+- Reserved for the response: **2,048 tokens**; safety margin: **512 tokens**.
+  **Amended (v0.5):** the response reservation was 4,096.
 - Hard cap of **60 messages** included regardless of budget.
 - Selection walks backwards from the newest message, always includes the newest
   user message, and drops a leading assistant-only remainder so history starts
@@ -198,7 +218,7 @@ assistant response, then include the most recent messages that fit.
 
 ### 5.7 Token usage
 
-- [ ] Display input and output token counts for each assistant response when Gemini provides usage metadata, formatted as `N in · M out` in the response metadata row.
+- [ ] Display input and output token counts for each assistant response when the provider reports usage metadata, formatted as `N in · M out` in the response metadata row.
 - [ ] If usage metadata is unavailable, display an unavailable/unknown state rather than presenting an invented exact count.
 - [ ] Store usage metadata with the corresponding generation attempt when available.
 - [ ] Do not add conversation-level usage dashboards or cost analytics in the MVP.
@@ -256,10 +276,12 @@ Retry policy details (maximum attempts, retryable status codes, and backoff limi
 | Database | PostgreSQL (Docker Compose for local development) |
 | ORM | SQLAlchemy 2.x async + asyncpg (confirmed) |
 | Migrations | Alembic (confirmed) |
-| LLM | Gemini `gemini-3.6-flash` (config-driven, see ADR-001) |
-| Provider API | Gemini **Interactions API** (GA since June 2026) |
-| Provider SDK | `google-genai` >= 2.3.0 |
-| Provider state | Stateless from the provider's perspective (`store=false`) |
+| LLM | OpenAI-compatible endpoint (Groq by default) or Gemini `gemini-3.6-flash`, config-driven (ADR-001, ADR-007) |
+| Provider API (default) | OpenAI chat completions, streamed as SSE |
+| Provider client (default) | `httpx` (no vendor SDK) |
+| Provider API (Gemini) | Gemini **Interactions API** (GA since June 2026) |
+| Provider SDK (Gemini) | `google-genai` >= 2.3.0 |
+| Provider state | Stateless from the provider's perspective (`store=false` on Gemini; bounded history on every call) |
 | Streaming | Server-Sent Events, POST response consumed via `fetch` stream |
 | Python environment/package manager | `uv` |
 | Tests | `pytest` (backend), Vitest + React Testing Library (frontend) |
@@ -275,6 +297,12 @@ where new model and tool capabilities launch. Its event model
 legacy `generateContent` stream, which is why the adapter maps a small, stable
 subset of it and hides the rest.
 
+**Amended (v0.5):** the default provider is an **OpenAI-compatible** endpoint
+(Groq), so the same adapter serves Groq, Cerebras, OpenRouter, Mistral and Ollama
+by base URL. The wire format is OpenAI chat completions with
+`stream_options.include_usage`, parsed over `httpx`; no vendor SDK. Gemini remains
+supported behind the same provider interface.
+
 **Rejected alternatives:** the legacy `generateContent` API (superseded, no new
 capability launches), raw REST over HTTPX (more work, no learning benefit once
 the SDK is isolated behind the adapter), and background execution with
@@ -284,9 +312,14 @@ the SDK is isolated behind the adapter), and background execution with
 
 - [ ] Define a small application-owned interface for chat generation and streaming.
 - [ ] Implement Gemini behind that interface.
+- [ ] **Amended (v0.5):** Implement an OpenAI-compatible provider behind the same
+  interface; it is the default. Gemini SDK types and provider-specific errors stay
+  inside the Gemini adapter.
 - [ ] Keep Gemini SDK types and provider-specific errors inside the Gemini adapter.
 - [ ] Keep application and API layers dependent on application-owned request/response/event contracts.
-- [ ] Do not implement a second provider in the MVP.
+- [ ] ~~Do not implement a second provider in the MVP.~~ **Amended (v0.5):** a
+  second provider is implemented; a *registry of adapters* keyed by configured
+  provider is the limit, not a plugin framework.
 - [ ] Do not create a generic plugin system or over-generalized provider framework.
 - [ ] **Resolved (v0.2):** Set `store=false` and never use `previous_interaction_id`. The application owns conversation state and context budgeting; the provider receives a bounded, self-contained request each turn.
 - [ ] **Resolved (v0.2):** Map only these provider events into the application contract: `step.delta` with `delta.type == "text"` → text delta; `interaction.completed` → terminal usage; provider `error` events and HTTP failures → application error categories. `thought`, `thought_signature`, and `tool` steps are ignored in the MVP.
@@ -301,10 +334,25 @@ The following is a proposed separation of responsibilities, not a requirement to
 - **Application/service layer:** Conversation orchestration, context selection, generation-attempt lifecycle, retry coordination.
 - **Domain/contracts:** Conversation/message/attempt concepts and provider-independent request/event types.
 - **Persistence layer:** PostgreSQL repositories and transaction boundaries.
-- **Provider adapter:** Gemini request mapping, streaming, usage metadata, cancellation, and provider error translation.
-- **Frontend:** Sidebar, conversation view, message composer, stream handling, error/retry states, Markdown rendering.
+- **Provider adapter:** provider request mapping, streaming, usage metadata, cancellation, and provider error translation.
+- **Frontend:** Sidebar, conversation view, message composer, stream handling, error/retry states, Markdown rendering, model picker.
 
 Avoid premature microservices. This is one application with clear internal boundaries.
+
+### 6.4 Model catalogue and selection (v0.5)
+
+- The catalogue is built at startup from the configured providers: Gemini when
+  `GEMINI_API_KEY` is present, each entry of `OPENAI_MODELS` when an
+  OpenAI-compatible key is present, and the scripted provider when neither is.
+  Offering only configured models means a picker choice cannot fail on first use.
+- `GET /api/models` returns `{items: [{id, label, provider, model}], default_id}`.
+  The id is stable and namespaced (`openai:<model>`, `gemini:<model>`), the label is
+  for humans, and `provider`/`model` are what the adapter needs.
+- `POST /api/chat` and the retry endpoint accept `model_id`. Absent means the
+  catalogue default; unknown means `400 model_not_available` before persisting.
+- Providers are built lazily, one instance each, and closed on shutdown.
+- If no provider is configured at all, startup succeeds with the scripted
+  provider in the catalogue rather than failing, so a fresh clone runs.
 
 ## 7. Data model
 
@@ -401,7 +449,7 @@ API requirements:
 
 ## 9. Security and privacy
 
-- [ ] Store the Gemini API key only in backend environment configuration/secrets.
+- [ ] Store provider API keys (OpenAI-compatible and Gemini) only in backend environment configuration/secrets.
 - [ ] Do not commit `.env` files or credentials.
 - [ ] Provide an `.env.example` containing placeholders only.
 - [ ] Do not expose secrets in frontend bundles, API responses, logs, or exception messages.
@@ -409,9 +457,10 @@ API requirements:
 - [ ] Apply sensible request-size and message-size limits. **Resolved (v0.2):**
   user message content 1–16,000 characters after trimming; request body capped
   at 64 KiB by middleware; oversized input returns `413` or `422` per case.
-- [ ] Send `store=false` to the provider so no interaction state is retained
-  server-side beyond the request itself.
-- [ ] Use synthetic/non-sensitive data with the Gemini free tier.
+- [ ] Send `store=false` to Gemini so no interaction state is retained
+  server-side beyond the request itself; the OpenAI-compatible endpoint is
+  stateless by construction.
+- [ ] Use synthetic/non-sensitive data with free-tier providers.
 - [ ] Avoid logging full user prompts and assistant responses by default.
 - [ ] Document that this is a local single-user learning project and has no authentication.
 - [ ] Do not expose the local service publicly without revisiting authentication, authorization, rate limiting, and deployment security.
@@ -468,13 +517,13 @@ API requirements:
 
 ### End-to-end/manual checks
 - [ ] Fresh Docker Compose startup works from documented instructions.
-- [ ] User can send a message and see a streamed Gemini response.
+- [ ] User can send a message and see a streamed model response.
 - [ ] Refresh during generation produces the agreed interrupted behavior.
 - [ ] A failed generation can be retried without duplicating the user message.
 - [ ] Conversations survive application restarts.
 - [ ] Deleting a conversation removes it from the sidebar and database.
 
-Tests should use a fake provider for deterministic behavior. Live Gemini tests should be opt-in/manual or isolated, so the normal test suite does not depend on network access, quotas, or paid inference.
+Tests should use a fake provider for deterministic behavior. Live provider tests should be opt-in/manual or isolated, so the normal test suite does not depend on network access, quotas, or paid inference.
 
 **Resolved (v0.2):** backend tests use `pytest` + `pytest-asyncio` against a
 disposable PostgreSQL database; frontend tests use Vitest + React Testing
@@ -488,7 +537,7 @@ The MVP is considered complete when:
 
 - [ ] A developer can start the frontend, backend, and PostgreSQL through Docker Compose using documented steps.
 - [ ] The user can create a new chat by submitting the first message.
-- [ ] The user receives a streamed Gemini response.
+- [ ] The user receives a streamed response from the selected model.
 - [ ] Conversations and messages persist across restarts.
 - [ ] The sidebar lists conversations newest/recently updated first and supports pagination.
 - [ ] Conversation titles are derived from the first message, limited to 80 characters when saved, and visually truncated as needed.
@@ -499,8 +548,8 @@ The MVP is considered complete when:
 - [ ] The user cannot submit another message while a response is active.
 - [ ] Provider failures are handled robustly and the user can retry the original message.
 - [ ] Generation attempts and statuses are persisted separately from the normal chat display.
-- [ ] Per-response token usage is displayed when returned by Gemini.
-- [ ] The full conversation is retained in PostgreSQL while only a bounded context is sent to Gemini.
+- [ ] Per-response token usage is displayed when the provider returns it.
+- [ ] The full conversation is retained in PostgreSQL while only a bounded context is sent to the model.
 - [ ] Automated tests cover core persistence, orchestration, failure, retry, and streaming behavior.
 - [ ] No authentication, RAG, agents, tools, file uploads, search, or cloud deployment have crept into the MVP.
 
@@ -642,7 +691,8 @@ For small reversible implementation details already covered by an agreed require
 - Conversation search, export, archiving, regeneration, message editing.
 - Authentication, multi-user isolation, rate limiting.
 - Cloud deployment, IaC, CI/CD beyond GitHub Actions checks.
-- Second provider, fallback provider, circuit breakers.
+- Provider fallback, circuit breakers (v0.5: a second provider is now in scope;
+  fallback is not).
 - Tool calling, RAG, multimodal input.
 
 ---
@@ -656,10 +706,10 @@ For small reversible implementation details already covered by an agreed require
 | UI | ChatGPT-like sidebar and chat view |
 | History | Persistent PostgreSQL storage |
 | Conversation creation | On first submitted message |
-| Context | Bounded token budget (20k input, 4k reserved output), app-owned |
+| Context | Bounded token budget (6k input, 2k reserved output in v0.5; was 20k/4k), app-owned |
 | Capabilities | General-purpose assistant only |
 | Streaming | Yes, from the beginning; SSE |
-| Model controls | One backend-configured Gemini model |
+| Model controls | A picker over the configured models; the choice travels with each request (v0.5) |
 | Error handling | Robust |
 | Editing/regeneration | Deferred |
 | Titles | Deterministic from first user message |
@@ -668,7 +718,7 @@ For small reversible implementation details already covered by an agreed require
 | Response rendering | Markdown, syntax highlighting, code-block copy |
 | System prompt | Version-controlled backend configuration file |
 | Deployment | Local Docker Compose |
-| Provider integration | Small provider boundary; Gemini only |
+| Provider integration | Small provider boundary; OpenAI-compatible (default) + Gemini + fake (v0.5) |
 | Stop generation | Yes; preserve partial output as interrupted |
 | Concurrent user messages | Not allowed while generating |
 | Conversation save | On first user message |
@@ -682,9 +732,9 @@ For small reversible implementation details already covered by an agreed require
 | Sidebar | Cursor-paginated, newest/recently updated first |
 | Identity | UUIDv7 primary keys for all three entities |
 | Ordering key | `(updated_at DESC, id DESC)`; `updated_at` bumps on message insert |
-| Provider API | Gemini Interactions API (`google-genai` >= 2.3.0), not `generateContent` |
-| Provider state | Stateless requests (`store=false`); app owns conversation history |
-| Model | `gemini-3.6-flash`; model churn is a tracked risk, model picker deferred |
+| Provider API | OpenAI chat completions over `httpx` (default) and Gemini Interactions API (`google-genai` >= 2.3.0), not `generateContent` |
+| Provider state | Stateless requests (`store=false` on Gemini; full bounded history on every compatible call); app owns conversation history |
+| Model | Default `openai/gpt-oss-120b` on Groq, selectable per request; Gemini `gemini-3.6-flash` also offered (ADR-007) |
 | Persistence stack | SQLAlchemy 2.x async + asyncpg + Alembic |
 | Assistant content | Canonical on `messages.content`; attempts hold lifecycle/usage metadata only |
 | Active generation invariant | One `in_progress` attempt per conversation, enforced by partial unique index |
@@ -694,7 +744,7 @@ For small reversible implementation details already covered by an agreed require
 | Retry policy | 2 automatic retries, 1s→8s jittered backoff, pre-first-token only |
 | Concurrent message rejection | `409 generation_in_progress` with active `attempt_id` |
 | Post-token provider failure | `failed`, partial text kept visible, Retry creates a new attempt |
-| Context budget | 20,000 input tokens, 4,096 output reserve, 512 margin, 60-message cap |
+| Context budget | 6,000 input tokens (v0.5; was 20,000), 2,048 output reserve, 512 margin, 60-message cap |
 | Message size | 1–16,000 characters; 64 KiB request body cap |
 | Title rule | 80 code points, whitespace-normalized, word-boundary-aware cut |
 | Crash recovery | Startup reconciliation marks stranded attempts `interrupted` (`process_restart`) |
