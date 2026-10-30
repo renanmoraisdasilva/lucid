@@ -71,7 +71,11 @@ export function useChat(): ChatController {
     queryKey: ["models"],
     queryFn: ({ signal }) => getModels(signal),
     staleTime: Infinity,
-    retry: false,
+    // `npm run dev` starts Vite and the API together, so the first request can
+    // land before uvicorn is listening. Without a retry the picker stays hidden
+    // for the rest of the session.
+    retry: 3,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
   });
 
   const [modelId, setModelId] = useState<string | null>(() =>
