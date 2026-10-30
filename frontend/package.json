@@ -14,7 +14,8 @@
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "demo:media": "node scripts/build-demo-gif.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.105.0",
@@ -40,9 +41,11 @@
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
+    "gifenc": "^1.0.3",
     "globals": "^17.13.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",

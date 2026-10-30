@@ -9,7 +9,8 @@
     "dev:web": "npm --prefix frontend run dev",
     "dev:db": "docker compose up -d db",
     "dev:stack": "docker compose --profile full up -d --build",
-    "dev:stack:down": "docker compose --profile full down"
+    "dev:stack:down": "docker compose --profile full down",
+    "demo:media": "npm --prefix frontend run demo:media"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

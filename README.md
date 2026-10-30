@@ -1,334 +1,179 @@
 # Lucid
 
-A single-user, ChatGPT-style chatbot built as a learning project: FastAPI +
-PostgreSQL backend, React + TypeScript frontend, streamed responses from an
-OpenAI-compatible endpoint (Groq by default) or Gemini.
+**A small chat app built to show the whole life of an LLM request — nothing hidden behind a framework.**
 
-The point is not the chatbot. It is to build, test, and explain the complete
-lifecycle of an LLM-backed application — request, context construction, provider
-streaming, persistence, cancellation, failure handling, and observability —
-without hiding behind a framework or an agent library.
+Lucid is a single-user chat application: you type, a model answers, the answer streams in, and everything is stored in PostgreSQL. The point is not the chat window. It is everything around the model call: building the context, streaming the answer, cancelling it, retrying after a failure, switching models, and measuring what happened — written and tested by hand.
 
-## Status
+It is also a worked example of **spec-driven development**: the specification came first, the consequential choices were written down as ADRs, the build followed a plan with exit criteria, and the acceptance results were recorded instead of claimed.
 
-**Milestone 6 (UI polish and acceptance) complete. The MVP meets the spec's
-acceptance criteria.**
+![Sending a message, switching model mid-conversation, and reading the dashboard](docs/demo.gif)
 
-| Milestone | State |
-|---|---|
-| 0 — Design close | ✅ |
-| 1 — Foundation | ✅ |
-| 2 — Persistence and conversations | ✅ |
-| 3 — Provider boundary and Gemini adapter | ✅ |
-| 4 — Streaming chat | ✅ |
-| 5 — Context, usage, resilience | ✅ |
-| 6 — UI polish and acceptance | ✅ |
-| 7 — Second provider and model picker | ✅ |
+---
 
-### Acceptance results (2026-10-29)
+## What it does
 
-| Criterion (spec §12) | Result |
-|---|---|
-| Start frontend, backend, and PostgreSQL via Compose from documented steps | ✅ `docker compose --profile full up --build`; all three healthy, SPA on `:8080` |
-| Create a new chat by submitting the first message | ✅ Live + integration tests |
-| Receive a streamed model response | ✅ Live through the nginx proxy (deltas, usage, `done`), and a live Groq call (0.38s to first token) |
-| Conversations persist across restarts | ✅ Backend container restarted; conversation and both messages intact |
-| Sidebar newest first with pagination | ✅ `useInfiniteQuery` + keyset API; API pagination tests |
-| Titles derived, capped at 80, ellipsized | ✅ Unit tests, CSS truncation |
-| Open, continue, delete conversations | ✅ Integration tests + modal confirmation |
-| Safe Markdown, highlighting, per-block copy | ✅ Sanitization and copy tests (`<script>`, `javascript:`, `<iframe>`, `onerror`) |
-| Stop generation preserves partial text | ✅ Service tests + live disconnect (43-character interrupted message) |
-| Refresh/disconnect during generation | ✅ Live `curl` abort produced `interrupted` with no active attempt |
-| Composer locked while generating | ✅ UI test + `409 generation_in_progress` |
-| Provider failures handled, original message retryable | ✅ Retry matrix tests, failed attempt persisted |
-| Attempts and statuses persisted separately | ✅ Schema constraints and lifecycle tests |
-| Per-response token usage | ✅ Live `117 in / 1 out`, or `usage unavailable` |
-| Full history stored, bounded context sent | ✅ Context selection tests; provider request bounded |
-| Automated coverage of core behaviour | ✅ 224 backend, 42 frontend |
+- **Chat with streaming replies.** Server-Sent Events, ~0.4 s to the first token on Groq.
+- **Choose the model per message.** Groq, Gemini, or the offline scripted provider — from one picker.
+- **Stop, retry, and recover.** Partial text survives a stop; a failed message keeps its text and gets a Retry button.
+- **Remember everything.** Conversations, messages and every generation attempt, with token usage and timing.
+- **Read the telemetry.** A dashboard with volume, success rate, tokens, latency percentiles and a details dialog per attempt.
 
-Not exercised end to end, and listed in
-[`docs/architecture/gemini-adapter-notes.md`](docs/architecture/gemini-adapter-notes.md):
-`finish_reason: "length"` when the output cap is hit, and the stop grace timer
-against a stalled provider.
+## The application
+
+| Conversation, two models | Model picker |
+| --- | --- |
+| ![A conversation that switches model between turns](docs/images/chat.webp) | ![The model picker open over the composer](docs/images/model-picker.webp) |
+| The first turn ran on `gpt-oss-120b`, the second on `gpt-oss-20b`. Usage is per response; history is shared. | The picker lists only models the server is configured for, and remembers your choice across reloads. |
+
+| Dashboard | Interrupted generation |
+| --- | --- |
+| ![Dashboard with metrics, token trend and latency charts](docs/images/dashboard.webp) | ![A stopped generation with partial text kept](docs/images/stopped.webp) |
+| Volume, success rate, tokens, p50/p95 latency and recent attempts — all from the database, not from a log scraper. | Stop keeps what was already received and marks the attempt `interrupted`. Retry reuses the original message. |
+
+| Generation details | On a phone |
+| --- | --- |
+| ![Details dialog for one attempt](docs/images/generation-details.webp) | ![Mobile navigation drawer](docs/images/mobile-sidebar.webp) |
+| One attempt: model, status, tokens, timing, error code. This is how a mixed-model conversation stays honest. | The same components, a drawer instead of the sidebar. |
+
+---
+
+## What happens when you press Enter
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant A as FastAPI
+  participant D as PostgreSQL
+  participant P as Model provider
+
+  B->>A: POST /api/chat { content, model_id }
+  A->>A: resolve model from the catalogue
+  A->>D: save the user message
+  A->>P: stream chat completion (bounded history)
+  P-->>A: tokens
+  A-->>B: SSE meta → delta… → usage → done
+  A->>D: save the reply + one attempt row
+```
+
+The browser never talks to a provider, and never sees a key. The reply is committed **before** the terminal `done` event is sent, so a client that reacts to `done` can re-read the conversation and find the message already there.
+
+Every message becomes one **attempt** row: model, provider, status, token usage, first-token time, HTTP status, error code. That single table is why the dashboard can be honest and why a conversation can mix models without lying about it.
+
+## One provider boundary, three implementations
+
+```mermaid
+flowchart LR
+  UI["Chat UI<br/>model picker"] -->|"model_id"| API["FastAPI"]
+  API --> CAT["Model catalogue<br/>built from configured keys"]
+  CAT --> REG["Provider registry<br/>one cached client per provider"]
+  REG --> G["Groq<br/>OpenAI-compatible"]
+  REG --> GE["Gemini"]
+  REG --> F["Fake<br/>offline + tests"]
+```
+
+The application owns a narrow `ChatProvider` protocol:
+
+```python
+class ChatProvider(Protocol):
+    name: str
+    def stream(self, request: GenerationRequest) -> AsyncIterator[ProviderEvent]: ...
+```
+
+No SDK type crosses that line. The default adapter speaks the OpenAI chat-completions wire format over `httpx`, so **Groq, Cerebras, OpenRouter, Mistral and Ollama are a base URL apart** — the choice is configuration, not code. Gemini keeps its own adapter behind the same protocol.
+
+The picker is built from what is actually configured: a provider with no key is not offered, so a model choice cannot fail on first use. `GET /api/models` returns the list and a default; `POST /api/chat` accepts `model_id` and rejects an unknown one with `400` before anything is stored.
+
+## When things go wrong
+
+```mermaid
+stateDiagram-v2
+  [*] --> InProgress: user message saved
+  InProgress --> Completed: text received
+  InProgress --> Failed: provider error
+  InProgress --> Interrupted: stop, refresh, or crash
+  Failed --> InProgress: Retry starts a new attempt
+  Interrupted --> InProgress: Retry starts a new attempt
+  Completed --> [*]
+```
+
+- **Rate limits** carry the provider's own wait hint; the UI shows the reset time and disables Retry until then. A short in-process cooldown stops the app from hammering a provider that just said *no*.
+- **Transient errors** get at most two automatic retries with jittered backoff — and only before the first token, because retrying after text has streamed would duplicate output.
+- **Stop** cancels the asyncio task driving the provider stream and persists what arrived as `interrupted`.
+- **Crash** recovery runs at startup: attempts stranded `in_progress` by a restart are closed as `interrupted` with `error_code = process_restart`.
+
+## Built spec-first
+
+```mermaid
+flowchart LR
+  S["Specification<br/>what must be true"] --> ADR["ADRs<br/>consequential choices"]
+  ADR --> P["Plan<br/>milestones + exit criteria"]
+  P --> I["Implementation<br/>small, reviewable commits"]
+  I --> T["Tests + CI gates"]
+  T --> A["Acceptance<br/>recorded, not claimed"]
+  A -.-> S
+```
+
+The specification (`docs/specs/`) states requirements and acceptance criteria. Before building, the choices that would be expensive to reverse became ADRs (`docs/decisions/`) — provider, data model, streaming, identifiers, failure semantics, frontend, and later the second provider and model picker. The plan (`docs/plans/`) turned those into milestones with exit criteria.
+
+The process was not decoration. Re-reading the provider docs changed the default model twice; measuring latency moved it again; a 20-request-per-day free tier forced the second provider; the code-health budget forced a 585-line module to be split before the dashboard was built. Those turns are recorded, with the evidence, in **[How this was built](docs/how-it-was-built.md)**.
+
+## Tested, and gated
+
+| Layer | What it proves | Count |
+| --- | --- | --- |
+| Backend unit | context budgeting, retry policy, error mapping, titles, cursors | part of 258 |
+| Backend integration | real PostgreSQL, migrations, SSE frames, stop/disconnect, reconciliation, dashboard queries | part of 258 |
+| Frontend | SSE parsing, Markdown sanitization, streaming UI, model picker, dashboard charts | 125 tests, 26 files |
+| Browser E2E | send → stream → reload → delete, against the built app | Playwright, opt-in |
+| Live (opt-in) | a real provider stream and first-token latency | 1 file, skipped by default |
+
+- **258 backend tests** pass with no network; the full suite runs in ~30 s against PostgreSQL.
+- **89.6 % backend coverage** and **~91 % frontend line coverage**, enforced in CI.
+- **Strict types everywhere:** Pyright strict on the backend, TypeScript strict on the frontend. Zero errors, zero suppressions in the application code.
+- **Budgets, not opinions:** files ≤ 300 lines (350 for providers), functions ≤ 50 lines, cyclomatic complexity ≤ 12, ≤ 5 parameters, ≤ 4 nesting levels, enforced by a test that parses the source.
+- **One import boundary test** proves the domain layer never imports the provider adapters.
+
+Details and commands: **[Testing](docs/testing.md)** and **[Code quality](docs/code-quality.md)**.
+
+## Run it
+
+```powershell
+npm install
+Copy-Item .env.example .env    # paste OPENAI_API_KEY (Groq) or GEMINI_API_KEY
+npm run dev                    # PostgreSQL, migrations, API :8000, web :5173
+```
+
+No key? Set `PROVIDER=fake` and the app runs on a scripted provider — the same code path, no network, no quota.
 
 ## Documentation
 
-| Document | Purpose |
-|---|---|
-| [`docs/specs/001-lucid-specification.md`](docs/specs/001-lucid-specification.md) | What the system must do: scope, non-goals, UX, data model, acceptance criteria |
-| [`docs/specs/002-lucid-dashboard-spec.md`](docs/specs/002-lucid-dashboard-spec.md) | Dashboard scope, metrics, telemetry fields, retention and states |
-| [`docs/plans/implementation-plan.md`](docs/plans/implementation-plan.md) | How it gets built: architecture, DDL, API and SSE contracts, milestones, tests, risks |
-| [`docs/plans/dashboard-implementation-plan.md`](docs/plans/dashboard-implementation-plan.md) | Dashboard milestones, API shape, file inventory, test matrix |
-| [`docs/plans/code-health-budget.md`](docs/plans/code-health-budget.md) | Enforced size, complexity, coverage and maintainability limits |
-| [`docs/decisions/`](docs/decisions/) | ADRs for the consequential choices (provider, data model, streaming, ids, failures, frontend, model selection) |
-| [`docs/architecture/`](docs/architecture/) | Adapter notes: verified SDK behaviour, event shapes, error mapping |
-| [`docs/screen-mockups/`](docs/screen-mockups/) | Static HTML previews of every UI state, plus the shared design tokens and shell |
+Start here, then pick the branch you care about.
 
-Read the specification first, then the plan. The ADRs explain the decisions that
-the spec leaves as outcomes rather than reasoning.
+- **[Documentation index](docs/README.md)** — what each document is, and which are historical records
+- **[Architecture](docs/architecture.md)** — request lifecycle, data model, provider boundary, failure semantics
+- **[Testing](docs/testing.md)** — the pyramid, what each layer proves, how to run it
+- **[Code quality](docs/code-quality.md)** — the gates, the budgets, and the refactors they forced
+- **[How this was built](docs/how-it-was-built.md)** — spec → ADR → plan → acceptance, and what changed along the way
+- **[ADRs](docs/decisions/)** — the decisions themselves, with alternatives and costs
+- **[Specification](docs/specs/001-lucid-specification.md)** — requirements, non-goals, acceptance criteria
+- **[Screen mockups](docs/screen-mockups/)** — the static design pass that preceded the components
 
-## Scope in one paragraph
-
-One user, no authentication. Send a message, watch the reply stream in, stop it
-mid-flight, retry a failure, browse and delete conversations, read Markdown with
-syntax-highlighted code blocks. Everything persists in PostgreSQL. Full
-conversations are stored; only a bounded, budgeted slice is sent to the model.
-No RAG, no agents, no tools, no file uploads, no cloud deployment.
-
-## Stack
-
-| Layer | Choice |
-|---|---|
-| Backend | Python 3.12, FastAPI, Pydantic v2 |
-| Persistence | PostgreSQL 17, SQLAlchemy 2.x async, asyncpg, Alembic |
-| Model | OpenAI-compatible endpoint (Groq by default) via `httpx`; Gemini via the Interactions API (`google-genai`) — see ADR-007 |
-| Streaming | Server-Sent Events over `POST`, parsed with `fetch` — Milestone 4 |
-| Frontend | React 19 + TypeScript, Vite, Tailwind CSS |
-| Quality | Ruff, Pyright (strict), pytest, ESLint, Prettier, Vitest, GitHub Actions |
-| Local dev | PostgreSQL in Docker Compose; API and web on the host |
-
-### Why these dependencies
-
-| Dependency | Reason |
-|---|---|
-| `uv` | Reproducible Python toolchain and lockfile; also provisions the interpreter |
-| `fastapi`, `uvicorn` | Typed async HTTP framework with streaming support |
-| `pydantic`, `pydantic-settings` | Boundary validation and typed configuration |
-| `sqlalchemy[asyncio]`, `asyncpg` | Async persistence with explicit transactions |
-| `alembic` | Versioned schema migrations |
-| `ruff`, `pyright`, `pytest` | Lint/format, static typing, tests |
-| `react`, `react-dom`, `vite` | UI runtime and dev server |
-| `tailwindcss` | Styling without a bespoke CSS system |
-| `eslint`, `prettier`, `vitest`, `@testing-library/*` | Frontend quality gates |
-| `google-genai` | Gemini Interactions API client (added in Milestone 3) |
-| `httpx` | Async HTTP client for the OpenAI-compatible adapter and its test transport |
-
-## Prerequisites
-
-- Docker Desktop with Compose v2+
-- [`uv`](https://docs.astral.sh/uv/) and Python 3.12 (uv can install the
-  interpreter itself)
-- Node.js 22+
-- A model API key, free tier is sufficient: a Groq key (the default endpoint) or a
-  Gemini key
-
-### Installing the toolchain on Windows
-
-Verified on this machine on 2026-10-28:
+The GIF and screenshots are generated from the running app, not hand-made:
 
 ```powershell
-# uv, which also manages the Python interpreter
-winget install --id=astral-sh.uv -e
-
-# Managed CPython 3.12 (no python.org installer needed)
-uv python install 3.12
-
-# npm ships .ps1 wrappers that a Restricted policy blocks
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-A new shell is required after `winget install` for `uv` to be on `PATH`.
-
-## Quickstart
-
-### The one-command path (host processes)
-
-```powershell
-npm install                   # once, for the root dev tooling
-Copy-Item .env.example .env   # paste OPENAI_API_KEY (Groq) or GEMINI_API_KEY into .env
 npm run dev
+npm run demo:media          # docs/demo.gif + docs/images/*.webp
 ```
 
-`npm run dev` starts PostgreSQL in Compose, syncs Python dependencies, applies
-migrations, then runs the API with reload on `http://127.0.0.1:8000` and the web
-app on `http://127.0.0.1:5173`. Stop everything with Ctrl+C. Individual pieces:
-`npm run dev:db`, `npm run dev:prepare`, `npm run dev:api`, `npm run dev:web`.
+## Limits
 
-For instant replies without spending quota, set `PROVIDER=fake` in `.env`; the
-scripted provider needs no API key.
+- Single user, no authentication. Do not expose it beyond localhost.
+- One backend process: cancellation tracking is in memory. Multiple workers would need the DB-backed design noted in ADR-003.
+- Free-tier quotas are the real ceiling. Groq gives 1,000 requests/day and 8K tokens/minute; Gemini gives 20 requests/day. The context budget (6K input tokens) is sized for the tighter of the two.
+- Partial text is only persisted at the end of an attempt, so a hard crash loses the tail of the current reply.
+- The rate-limit cooldown is per process, not per model, so a 429 on one model briefly blocks the others.
 
-**`--reload` watches Python files, not `.env`.** Settings are read once at
-startup, so after changing `.env` stop and restart `npm run dev`. `.env.example`
-is only a template — nothing reads it; put real values in `.env` at the repo root.
-Every setting also has a default in `backend/src/lucid/config.py`.
+## License
 
-If you have the Docker stack running, stop it first (`npm run dev:stack:down`),
-because it owns ports 8000 and 8080.
-
-### Manual steps
-
-```powershell
-# 1. Configuration
-Copy-Item .env.example .env      # edit if you want different credentials
-
-# 2. PostgreSQL
-docker compose up -d db
-
-# 3. Backend (terminal 1)
-cd backend
-uv sync
-uv run alembic upgrade head
-uv run uvicorn lucid.main:app --reload
-
-# 4. Frontend (terminal 2)
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://127.0.0.1:5173. The page reports `API: ok` when the dev proxy can
-reach the backend.
-
-Configuration is read from the repository-root `.env` first, then `backend/.env`,
-so a local override next to the code wins. Every setting has a working default in
-`backend/src/lucid/config.py`; `.env` only needs secrets and deliberate
-overrides. `PROVIDER=openai_compatible` (the default) needs `OPENAI_API_KEY` or
-`GROQ_API_KEY`; `PROVIDER=gemini` needs `GEMINI_API_KEY`; `PROVIDER=fake` runs the
-scripted provider with no key and no network access. The picker lists the models of
-whichever providers have a key, and falls back to the scripted provider when none
-do.
-
-### Whole stack in Docker
-
-```powershell
-docker compose --profile full up -d --build
-```
-
-| Service | URL |
-|---|---|
-| SPA (nginx) | http://127.0.0.1:8080 |
-| API (uvicorn) | http://127.0.0.1:8000 |
-| PostgreSQL | localhost:5432 |
-
-The backend image applies Alembic migrations before serving. nginx proxies
-`/api/` with buffering disabled so SSE passes through. Stop it with
-`docker compose --profile full down`.
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/health` | Liveness, no dependency checks |
-| `GET /api/health/ready` | Readiness, includes a database round trip |
-| `GET /api/conversations` | Cursor-paginated list, most recently updated first |
-| `GET /api/conversations/{id}` | Conversation with messages and attempt metadata |
-| `GET /api/models` | Models offered by the picker, with the default selection |
-| `DELETE /api/conversations/{id}` | Permanent delete, messages and attempts cascade |
-| `POST /api/chat` | Send a message; returns `text/event-stream`. Optional `model_id` selects the model |
-| `POST /api/conversations/{cid}/messages/{mid}/retry` | Retry a user message; streams a new attempt |
-| `POST /api/conversations/{cid}/generations/{aid}/stop` | Cooperative stop, `202`, idempotent |
-| `/docs` | OpenAPI UI (development convenience) |
-
-Errors use one envelope: `{"error": {"code", "message", "details"}}`.
-
-## Development commands
-
-```powershell
-# Backend, from backend/
-uv run ruff check .
-uv run ruff format --check .
-uv run pyright
-uv run pytest -q --cov=lucid --cov-branch --cov-fail-under=80
-uv run radon cc src -s -a
-uv run radon mi src -s
-uv run alembic upgrade head
-
-# Frontend, from frontend/
-npm run lint
-npm run format:check
-npm run typecheck
-npm run test:coverage
-npm run build
-```
-
-Integration tests run against the Compose database and **truncate the chat
-tables** between cases. They skip automatically when no database is reachable.
-Point them elsewhere with `TEST_DATABASE_URL`.
-
-## Testing
-
-| Layer | Covers | Command |
-|---|---|---|
-| Unit | context selection, retry policy, titles, cursors, provider mapping | `uv run pytest tests/unit` |
-| Integration | real PostgreSQL, migrations, SSE frame sequence, stop/disconnect, retries, reconciliation | `uv run pytest tests/integration` |
-| Frontend | SSE parsing, Markdown sanitization, grouping, streaming UI, model picker, delete dialog, API client | `npm run test:coverage` |
-| Code health | file/function size, complexity, MI, coverage floors | see [`docs/plans/code-health-budget.md`](docs/plans/code-health-budget.md) |
-| Browser E2E | send → stream → reload → delete, against a real browser and stack | `npm run e2e` (see below) |
-| Live (opt-in) | real provider streaming and **first-token latency** | `$env:LUCID_LIVE_TESTS=1; uv run pytest tests/live` |
-
-The live suite exists because the fake provider is instantaneous: it cannot
-observe a provider that takes 25 seconds to produce a token. It is opt-in so the
-normal suite stays offline and free.
-
-### Browser end-to-end
-
-Playwright drives the assembled UI. For a deterministic run, start the stack with
-the scripted provider:
-
-```powershell
-docker compose -f docker-compose.yml -f docker-compose.e2e.yml --profile full up -d --build
-cd frontend
-npm run e2e
-```
-
-Point it at another stack with `E2E_BASE_URL` (default `http://127.0.0.1:8080`).
-The suite covers: send a message and see the streamed reply, reload and reopen the
-conversation, and delete it through the confirmation dialog. It is deliberately
-**not wired into CI** yet — it needs a Compose stack and a browser download.
-
-## Layout
-
-```text
-backend/src/lucid/
-  api/           HTTP routes, request/response schemas
-  application/   orchestration, context budgeting, attempt lifecycle
-  domain/        provider protocol, events, error taxonomy
-  persistence/   engine, models, repositories
-  providers/     openai-compatible adapter, gemini adapter, fake provider
-backend/migrations/  Alembic revisions
-frontend/src/    React application
-docs/            specs, plan, ADRs
-```
-
-## Repository
-
-Published at **https://github.com/renanmoraisdasilva/lucid** (private). Every push
-to `main` runs CI:
-
-| Job | Steps |
-|---|---|
-| Backend | ruff check, ruff format --check, pyright, `alembic upgrade head` against a Postgres service, pytest |
-| Frontend | npm ci, eslint, prettier --check, tsc, vitest, vite build |
-
-The Playwright suite is not part of CI yet; run it locally with
-`docker compose -f docker-compose.yml -f docker-compose.e2e.yml --profile full up -d --build`
-and `npm run e2e`.
-
-Flip the repository to public once the MVP is demonstrable and the README,
-mockups, and architecture notes are in place. The local directory can be renamed
-to `lucid` at any time — the remote name comes from the GitHub repository, not the
-folder.
-
-## Known limitations (by design, for now)
-
-- No authentication or multi-user support. Do not expose this beyond localhost.
-- Single backend process: generation tracking is in-process.
-- The free tier is the real ceiling. Groq's free plan allows **1,000 requests/day
-  and 8K tokens/minute**, so long conversations lose the oldest turns sooner than a
-  paid tier would. Gemini's free tier still allows only **20 requests/day** for
-  `gemini-3.6-flash`. When a quota is exhausted the provider returns 429 with the
-  wait; the UI shows the reset time and disables Retry until then.
-- The rate-limit cooldown is per process, not per model, so a 429 on one model
-  briefly blocks the others too.
-- The model list is a startup snapshot of `OPENAI_MODELS`. A model retired upstream
-  keeps appearing in the picker until the configuration changes, and the first call
-  fails.
-- No conversation summarization; long conversations lose their oldest turns
-  from the model's context (the data is still stored).
-- Partial assistant text is not checkpointed, so a hard crash loses that tail.
-
-## Data handling
-
-Use only synthetic, non-sensitive content. Free-tier provider traffic may be used
-to improve the provider's products. Gemini requests are sent with `store=false` so
-no provider-side interaction state is retained beyond the request; the
-OpenAI-compatible endpoint is stateless by construction, because every call
-carries the bounded history.
+MIT.
