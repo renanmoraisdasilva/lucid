@@ -176,4 +176,4 @@ npm run demo:media          # docs/demo.gif + docs/images/*.webp
 
 ## License
 
-MIT.
+MIT — see [LICENSE](LICENSE).
