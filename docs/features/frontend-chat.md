@@ -4,8 +4,10 @@ title: Chat, composer, and message presentation
 paths:
   - frontend/src/App.tsx
   - frontend/src/hooks/chat/**
+  - frontend/src/hooks/useChat.ts
   - frontend/src/components/Composer.tsx
   - frontend/src/components/MessageList.tsx
+  - frontend/src/components/chat/**
 verificationMethod: automated-test
 ---
 

@@ -131,7 +131,7 @@ npm run trace:changes
 ```
 
 The scripts use the sibling `../../trace-docs/dist/cli/index.js` while Trace Docs
-is unpublished. The config must stay at the Git root: running Trace Docs against
-`backend/` or `frontend/` directly makes Git report paths from the repository
-root, which would not match the feature paths.
+is unpublished. Keep the config at the Git root: `backend/` and `frontend/` do
+not contain a config, so running Trace Docs from either directory cannot see the
+monorepo feature map.
 
