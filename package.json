@@ -13,13 +13,14 @@
     "demo:media": "npm --prefix frontend run demo:media",
     "trace:backend:evidence": "node tools/uv.mjs run pytest tests/unit --cov=lucid --cov-report=lcov:reports/lcov.info --cov-fail-under=0 --junitxml=reports/junit.xml",
     "trace:frontend:evidence": "cd frontend && npx vitest run --reporter=junit --outputFile=test-results/junit.xml --coverage --coverage.reporter=lcov",
-    "trace": "node ../../trace-docs/dist/cli/index.js",
-    "trace:check": "node ../../trace-docs/dist/cli/index.js check",
-    "trace:changes": "node ../../trace-docs/dist/cli/index.js changes",
+    "trace": "trace-docs",
+    "trace:check": "trace-docs check",
+    "trace:changes": "trace-docs changes",
     "trace:evidence": "npm run trace:backend:evidence && npm run trace:frontend:evidence",
-    "trace:verify": "node ../../trace-docs/dist/cli/index.js verify"
+    "trace:verify": "trace-docs verify"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "trace-docs": "file:tools/trace-docs-0.4.0.tgz"
   }
 }

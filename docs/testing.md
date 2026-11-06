@@ -131,11 +131,15 @@ npm run trace:evidence
 npm run trace:verify
 ```
 
+Trace Docs is installed as a local tarball
+(`tools/trace-docs-0.4.0.tgz`). There is no sibling-path reference and no npm
+publish. To update it, pack a new tarball in the Trace Docs repository, copy it
+into `tools/`, and reinstall it.
+
 `trace:verify` checks the documents and fails when changed code or tests did not
 update the affected rule document. The frontend and backend test suites also run
 it through `src/traceability.test.ts` and `tests/unit/test_traceability.py`.
 
-The scripts use the sibling `../../trace-docs/dist/cli/index.js` while Trace Docs
-is unpublished. Keep the config at the Git root: `backend/` and `frontend/` do
-not contain a config.
+Keep the config at the Git root: `backend/` and `frontend/` do not contain a
+config.
 

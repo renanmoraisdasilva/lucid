@@ -5,7 +5,14 @@ import { describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..", "..");
-const cli = resolve(repoRoot, "..", "..", "trace-docs", "dist", "cli", "index.js");
+const cli = resolve(
+  repoRoot,
+  "node_modules",
+  "trace-docs",
+  "dist",
+  "cli",
+  "index.js",
+);
 
 describe("traceability", () => {
   it("documentation and tests move together", () => {

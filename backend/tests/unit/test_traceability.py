@@ -11,7 +11,7 @@ def test_documentation_and_tests_move_together() -> None:
         pytest.skip("node is not installed")
 
     repo = Path(__file__).resolve().parents[3]
-    cli = repo.parents[1] / "trace-docs" / "dist" / "cli" / "index.js"
+    cli = repo / "node_modules" / "trace-docs" / "dist" / "cli" / "index.js"
     result = subprocess.run(
         [node, str(cli), "--root", str(repo), "verify"],
         capture_output=True,
