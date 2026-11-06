@@ -30,14 +30,14 @@ const DONE =
   'event: done\ndata: {"attempt_id":"a1","status":"completed","assistant_message_id":"m1","finish_reason":"stop"}\n\n';
 
 describe("parseSseFrames", () => {
-  it("[UI-SSE-001] parses named events in order", async () => {
+  it("[UI-SSE-FRAME-001] parses named events in order", async () => {
     const events = await collect([META, DELTA, DONE]);
 
     expect(events.map((event) => event.type)).toEqual(["meta", "delta", "done"]);
     expect(events[1]).toEqual({ type: "delta", data: { text: "Hello" } });
   });
 
-  it("reassembles a frame split across chunks", async () => {
+  it("[UI-SSE-FRAME-002] reassembles a frame split across chunks", async () => {
     const events = await collect([META.slice(0, 20), META.slice(20, 60), META.slice(60)]);
 
     expect(events).toHaveLength(1);

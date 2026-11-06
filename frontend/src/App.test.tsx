@@ -1,4 +1,4 @@
-// [UI-CHAT-001]
+// [UI-CHAT-INPUT-001] [UI-CHAT-INPUT-002] [UI-CHAT-SEND-001]
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -201,7 +201,7 @@ describe("App", () => {
     });
   });
 
-  it("sends the selected model with the message", async () => {
+  it("[UI-CHAT-SEND-001] sends the selected model with the message", async () => {
     const sent: Record<string, unknown>[] = [];
     installFetchMock(sent);
     const user = userEvent.setup();
@@ -226,7 +226,7 @@ describe("App", () => {
     expect(sent[0]).toMatchObject({ content: "Hello Lucid", model_id: GEMINI_MODEL_ID });
   });
 
-  it("returns to idle after the stream ends when StrictMode remounts effects", async () => {
+  it("[UI-CHAT-INPUT-002] returns to idle after the stream ends when StrictMode remounts effects", async () => {
     installFetchMock();
     const user = userEvent.setup();
 
@@ -242,7 +242,7 @@ describe("App", () => {
     expect(modelPicker()).not.toBeDisabled();
   });
 
-  it("disables the composer while a response is streaming", async () => {
+  it("[UI-CHAT-INPUT-001] disables the composer while a response is streaming", async () => {
     const gate = { close: () => {} };
     vi.stubGlobal(
       "fetch",

@@ -5,6 +5,6 @@ testGlobs:
   - "frontend/**/*.test.ts"
   - "frontend/**/*.test.tsx"
   - "backend/tests/**/test_*.py"
-testResults: "{backend/reports/junit.xml,frontend/test-results/trace.json}"
+testResults: "{backend/reports/junit.xml,frontend/test-results/junit.xml}"
 coverage:
-  path: "{backend/reports/coverage.xml,frontend/coverage/lcov.info}"
+  path: "{backend/reports/lcov.info,frontend/coverage/lcov.info}"

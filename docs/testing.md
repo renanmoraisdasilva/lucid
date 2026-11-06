@@ -118,20 +118,24 @@ One `trace.config.yaml` at the repository root covers both sides:
 
 - `docs/features/` maps `LUCID-*` ids to backend paths and `UI-*` ids to
   frontend paths.
-- `testResults` globs merge the pytest JUnit report and the Vitest JSON report.
-- `coverage.path` globs merge the Cobertura and lcov reports.
+- Feature documents contain rule headings such as
+  `### [UI-CHAT-INPUT-001] A pending response disables the composer`.
+- Tests put the rule id in the test name.
+- JUnit XML is the test report format; lcov is the coverage format.
 
 Generate evidence, then check it:
 
 ```powershell
 # From the repository root
 npm run trace:evidence
-npm run trace:check
-npm run trace:changes
+npm run trace:verify
 ```
+
+`trace:verify` checks the documents and fails when changed code or tests did not
+update the affected rule document. The frontend and backend test suites also run
+it through `src/traceability.test.ts` and `tests/unit/test_traceability.py`.
 
 The scripts use the sibling `../../trace-docs/dist/cli/index.js` while Trace Docs
 is unpublished. Keep the config at the Git root: `backend/` and `frontend/` do
-not contain a config, so running Trace Docs from either directory cannot see the
-monorepo feature map.
+not contain a config.
 

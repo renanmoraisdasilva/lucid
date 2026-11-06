@@ -17,3 +17,14 @@ verificationMethod: automated-test
 
 Owns the chat shell: sending, streaming, stopping, retrying, focus management,
 and the visible state of a message while it is generating or interrupted.
+
+### [UI-CHAT-INPUT-001] A pending response disables the composer
+While a response is streaming, the composer is disabled and a second send is
+not possible.
+
+### [UI-CHAT-INPUT-002] The composer returns to idle after the stream ends
+When the response finishes, the composer becomes usable again, including after a
+StrictMode remount.
+
+### [UI-CHAT-SEND-001] The selected model is sent with the message
+Each message carries the model the user selected, not a global default.
