@@ -30,7 +30,7 @@ const DONE =
   'event: done\ndata: {"attempt_id":"a1","status":"completed","assistant_message_id":"m1","finish_reason":"stop"}\n\n';
 
 describe("parseSseFrames", () => {
-  it("parses named events in order", async () => {
+  it("[UI-SSE-001] parses named events in order", async () => {
     const events = await collect([META, DELTA, DONE]);
 
     expect(events.map((event) => event.type)).toEqual(["meta", "delta", "done"]);

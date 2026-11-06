@@ -10,7 +10,13 @@
     "dev:db": "docker compose up -d db",
     "dev:stack": "docker compose --profile full up -d --build",
     "dev:stack:down": "docker compose --profile full down",
-    "demo:media": "npm --prefix frontend run demo:media"
+    "demo:media": "npm --prefix frontend run demo:media",
+    "trace:backend:evidence": "node tools/uv.mjs run pytest tests/unit --cov=lucid --cov-report=xml:reports/coverage.xml --cov-fail-under=0 --junitxml=reports/junit.xml",
+    "trace:frontend:evidence": "cd frontend && npx vitest run --reporter=json --outputFile=test-results/trace.json --coverage --coverage.reporter=lcov",
+    "trace": "node ../../trace-docs/dist/cli/index.js",
+    "trace:check": "node ../../trace-docs/dist/cli/index.js check",
+    "trace:changes": "node ../../trace-docs/dist/cli/index.js changes",
+    "trace:evidence": "npm run trace:backend:evidence && npm run trace:frontend:evidence"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

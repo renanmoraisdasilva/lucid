@@ -1,3 +1,4 @@
+# [LUCID-RETRY-001]
 """Retry eligibility and backoff."""
 
 import pytest

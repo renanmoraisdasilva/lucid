@@ -34,3 +34,6 @@ Thumbs.db
 playwright-report/
 test-results/
 blob-report/
+
+# Trace Docs evidence reports
+backend/reports/

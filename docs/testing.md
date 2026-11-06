@@ -111,3 +111,27 @@ npm run e2e
 ```
 
 CI runs the backend suite against a PostgreSQL service container, with migrations applied first, and fails below **80 % coverage** — the current figure is **89.6 %**.
+
+## Trace Docs pilot
+
+One `trace.config.yaml` at the repository root covers both sides:
+
+- `docs/features/` maps `LUCID-*` ids to backend paths and `UI-*` ids to
+  frontend paths.
+- `testResults` globs merge the pytest JUnit report and the Vitest JSON report.
+- `coverage.path` globs merge the Cobertura and lcov reports.
+
+Generate evidence, then check it:
+
+```powershell
+# From the repository root
+npm run trace:evidence
+npm run trace:check
+npm run trace:changes
+```
+
+The scripts use the sibling `../../trace-docs/dist/cli/index.js` while Trace Docs
+is unpublished. The config must stay at the Git root: running Trace Docs against
+`backend/` or `frontend/` directly makes Git report paths from the repository
+root, which would not match the feature paths.
+

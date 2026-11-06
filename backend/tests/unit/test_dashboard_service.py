@@ -1,3 +1,4 @@
+# [LUCID-DASH-001]
 """Dashboard result assembly: partial data, gaps and p95 thresholds."""
 
 import uuid
