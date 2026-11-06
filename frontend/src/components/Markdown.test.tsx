@@ -1,4 +1,3 @@
-// [UI-MARKDOWN-001]
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +9,7 @@ afterEach(() => {
 });
 
 describe("Markdown", () => {
-  it("renders headings, lists, tables and code", () => {
+  it("[UI-MARKDOWN-RULE-001] renders headings, lists, tables and code", () => {
     render(
       <Markdown
         content={
@@ -25,7 +24,7 @@ describe("Markdown", () => {
     expect(screen.getByText("ts")).toBeInTheDocument();
   });
 
-  it("strips scripts, iframes and raw HTML", () => {
+  it("[UI-MARKDOWN-RULE-002] strips scripts, iframes and raw HTML", () => {
     const { container } = render(
       <Markdown
         content={
@@ -39,7 +38,7 @@ describe("Markdown", () => {
     expect(container.querySelector("img")).toBeNull();
   });
 
-  it("neutralises javascript: links", () => {
+  it("[UI-MARKDOWN-RULE-003] neutralises javascript: links", () => {
     render(<Markdown content={"[click me](javascript:alert(1))"} />);
 
     expect(screen.queryByRole("link")).toBeNull();
@@ -56,7 +55,7 @@ describe("Markdown", () => {
     expect(link).toHaveAttribute("target", "_blank");
   });
 
-  it("copies code without the line-number gutter", async () => {
+  it("[UI-MARKDOWN-RULE-004] copies code without the line-number gutter", async () => {
     const user = userEvent.setup();
     // userEvent installs a clipboard stub in jsdom; spy on it rather than
     // replacing navigator.clipboard ourselves.

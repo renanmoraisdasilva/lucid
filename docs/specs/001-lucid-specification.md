@@ -1,5 +1,9 @@
 # Lucid — Product & Technical Specification
 
+> **Current behavior lives in `docs/features/`.** This specification records the
+> original intent and acceptance criteria. If it disagrees with a feature rule
+> and its test, the feature rule and test are the source of truth.
+
 **Status:** Approved for implementation  
 **Version:** 0.5  
 **Last updated:** 2026-10-29

@@ -30,21 +30,21 @@ const DONE =
   'event: done\ndata: {"attempt_id":"a1","status":"completed","assistant_message_id":"m1","finish_reason":"stop"}\n\n';
 
 describe("parseSseFrames", () => {
-  it("[UI-SSE-FRAME-001] parses named events in order", async () => {
+  it("[UI-SSE-RULE-001] parses named events in order", async () => {
     const events = await collect([META, DELTA, DONE]);
 
     expect(events.map((event) => event.type)).toEqual(["meta", "delta", "done"]);
     expect(events[1]).toEqual({ type: "delta", data: { text: "Hello" } });
   });
 
-  it("[UI-SSE-FRAME-002] reassembles a frame split across chunks", async () => {
+  it("[UI-SSE-RULE-002] reassembles a frame split across chunks", async () => {
     const events = await collect([META.slice(0, 20), META.slice(20, 60), META.slice(60)]);
 
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe("meta");
   });
 
-  it("handles CRLF line endings", async () => {
+  it("[UI-SSE-RULE-003] handles CRLF line endings", async () => {
     const crlf = 'event: delta\r\ndata: {"text":"x"}\r\n\r\n';
 
     const events = await collect([crlf]);
@@ -65,7 +65,7 @@ describe("parseSseFrames", () => {
     expect(events.map((event) => event.type)).toEqual(["delta"]);
   });
 
-  it("emits a trailing frame without a final blank line", async () => {
+  it("[UI-SSE-RULE-004] emits a trailing frame without a final blank line", async () => {
     const events = await collect(['event: delta\ndata: {"text":"tail"}']);
 
     expect(events).toEqual([{ type: "delta", data: { text: "tail" } }]);

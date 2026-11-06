@@ -1,4 +1,4 @@
-# [LUCID-STREAM-001]
+# [LUCID-STREAM-RULE-004]
 """Fake provider behaviour used by the application tests."""
 
 import pytest

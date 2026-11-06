@@ -1,4 +1,4 @@
-# [LUCID-RETRY-001]
+# [LUCID-RETRY-RULE-005]
 """Rate-limit cooldown bookkeeping."""
 
 from lucid.application.cooldown import DEFAULT_COOLDOWN_SECONDS, RateLimitCooldown

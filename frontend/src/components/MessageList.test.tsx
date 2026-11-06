@@ -60,14 +60,14 @@ describe("MessageList", () => {
     expect(screen.getByText("usage unavailable")).toBeInTheDocument();
   });
 
-  it("marks an interrupted response", () => {
+  it("[UI-CHAT-STOP-001] marks an interrupted response", () => {
     renderList();
 
     expect(screen.getByText("Interrupted")).toBeInTheDocument();
     expect(screen.getByText("Partial answer")).toBeInTheDocument();
   });
 
-  it("offers retry on a failed user message", async () => {
+  it("[UI-CHAT-RETRY-001] offers retry on a failed user message", async () => {
     const user = userEvent.setup();
     const { onRetry } = renderList({ messages: [USER_MESSAGE] });
 

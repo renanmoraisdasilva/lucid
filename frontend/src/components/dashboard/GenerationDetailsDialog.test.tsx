@@ -25,7 +25,7 @@ const completed: DashboardRecentAttempt = {
 };
 
 describe("GenerationDetailsDialog", () => {
-  it("shows completed metadata without an error block", () => {
+  it("[UI-DASH-RULE-004] shows completed metadata without an error block", () => {
     render(<GenerationDetailsDialog attempt={completed} onClose={() => {}} />);
 
     const dialog = screen.getByRole("dialog");

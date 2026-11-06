@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DashboardEmpty, DashboardError, DashboardLoading, StaleBanner } from "./DashboardStates";
 
 describe("DashboardStates", () => {
-  it("announces loading without pretending to have data", () => {
+  it("[UI-DASH-RULE-001] announces loading without pretending to have data", () => {
     render(<DashboardLoading />);
 
     const status = screen.getByRole("status", { name: "Loading dashboard" });
@@ -13,14 +13,14 @@ describe("DashboardStates", () => {
     expect(screen.getByText("Loading dashboard…")).toBeInTheDocument();
   });
 
-  it("explains an empty range", () => {
+  it("[UI-DASH-RULE-002] explains an empty range", () => {
     render(<DashboardEmpty />);
 
     expect(screen.getByText("No telemetry in this range")).toBeInTheDocument();
     expect(screen.getByText(/Try a wider range/)).toBeInTheDocument();
   });
 
-  it("retries after a request failure", async () => {
+  it("[UI-DASH-RULE-003] retries after a request failure", async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
 

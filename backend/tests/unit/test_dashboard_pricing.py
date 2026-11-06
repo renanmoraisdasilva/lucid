@@ -1,4 +1,4 @@
-# [LUCID-DASH-001]
+# [LUCID-DASH-RULE-005]
 """Estimated API cost from configured list prices."""
 
 from decimal import Decimal

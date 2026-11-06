@@ -21,7 +21,7 @@ const points: DashboardTrendPoint[] = [
 ];
 
 describe("LatencyChart", () => {
-  it("shows the period aggregate and explains a thin p95 sample", () => {
+  it("[UI-DASH-RULE-005] shows the period aggregate and explains a thin p95 sample", () => {
     render(
       <LatencyChart
         kind="ttft"

@@ -1,5 +1,9 @@
 # Lucid Dashboard — Functional Specification
 
+> **Current behavior lives in `docs/features/`.** This specification records the
+> original intent and acceptance criteria. If it disagrees with a feature rule
+> and its test, the feature rule and test are the source of truth.
+
 **Status:** Draft for implementation  
 **Product:** Lucid, a single-user AI chatbot  
 **Scope:** Learning-focused usage and application observability dashboard
