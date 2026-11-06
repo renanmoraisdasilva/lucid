@@ -132,7 +132,7 @@ npm run trace:verify
 ```
 
 Trace Docs is installed as a local tarball
-(`tools/trace-docs-0.4.0.tgz`). There is no sibling-path reference and no npm
+(`tools/trace-docs-0.4.1.tgz`). There is no sibling-path reference and no npm
 publish. To update it, pack a new tarball in the Trace Docs repository, copy it
 into `tools/`, and reinstall it.
 

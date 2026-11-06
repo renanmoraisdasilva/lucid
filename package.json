@@ -21,6 +21,6 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "trace-docs": "file:tools/trace-docs-0.4.0.tgz"
+    "trace-docs": "file:tools/trace-docs-0.4.1.tgz"
   }
 }
