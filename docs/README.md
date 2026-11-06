@@ -1,48 +1,37 @@
 # Documentation
 
-Lucid was built from a specification, and the documents are part of the deliverable. They are split by the question they answer, so nobody has to read a 45,000-character plan to find out how streaming works.
+This folder answers five questions. If a document does not fit one of them, it
+probably belongs in `archive/` or in the root `README.md`.
 
-## Read this first
-
-| If you want to… | Read |
+| Question | Document |
 | --- | --- |
-| understand the product in five minutes | [README](../README.md) |
-| understand how it is put together | [Architecture](architecture.md) |
-| judge the tests | [Testing](testing.md) |
-| judge the code quality claims | [Code quality](code-quality.md) |
-| see how the project was run | [How this was built](how-it-was-built.md) |
-| read a specific decision | [ADRs](decisions/) |
+| What behavior must exist today? | [`features/`](features/) |
+| Why did we choose this? | [`decisions/`](decisions/) |
+| How is it put together? | [`architecture.md`](architecture.md) |
+| How do I test and verify it? | [`testing.md`](testing.md) |
+| What are we doing next? | `plans/` — create it only when a plan is active |
 
 ## Current documents
 
-These describe the system as it is today.
+- **[`features/`](features/)** — the behavior registry. One document per
+  capability; each document contains one or more rules such as
+  `### [UI-CHAT-INPUT-001] ...`. There is no maximum rule count.
+- **[`decisions/`](decisions/)** — ADRs: the choice, the alternatives, and the
+  cost. Link to them from a feature rule when the reason is not obvious.
+- **[`architecture.md`](architecture.md)** — request lifecycle, data model, SSE
+  contract, provider boundary, failure semantics, deployment shape.
+- **[`testing.md`](testing.md)** — test layers, commands, evidence, coverage, and
+  quality gates.
 
-| Document | What it answers |
-| --- | --- |
-| [`architecture.md`](architecture.md) | Request lifecycle, data model, SSE contract, provider boundary, failure semantics, dashboard telemetry, deployment shape, known gaps |
-| [`testing.md`](testing.md) | What each test layer proves, the counts, how to run everything, what is deliberately untested |
-| [`code-quality.md`](code-quality.md) | The gates, the enforced budgets, and the refactors they forced |
-| [`screen-mockups/`](screen-mockups/README.md) | The static design pass: every screen state as HTML, with the shared tokens and shell |
-| [`decisions/`](decisions/) | Seven ADRs: provider, data model, streaming, identifiers, failures, frontend, model selection |
+## Historical documents
 
-## Historical records
+[`archive/`](archive/) holds superseded material: original specs, completed
+plans, the build narrative, code-quality history, and Gemini adapter notes.
+Nothing there is current truth. Use it for context, not for decisions.
 
-These were authoritative when written and are kept as they were. Amendments are appended, never rewritten — that is the point of a record.
+## Outside docs
 
-| Document | Status |
-| --- | --- |
-| [`specs/001-lucid-specification.md`](specs/001-lucid-specification.md) | Requirements and acceptance criteria, v0.1 → v0.5. The earlier sections describe the single-provider MVP; §5.4 and §6.1 carry the v0.5 amendment. |
-| [`specs/002-lucid-dashboard-spec.md`](specs/002-lucid-dashboard-spec.md) | Dashboard requirements and acceptance criteria. |
-| [`plans/implementation-plan.md`](plans/implementation-plan.md) | The original build plan: milestones, DDL, API and SSE contracts. Superseded in places by ADR-007, with an amendment at the top saying which. |
-| [`plans/dashboard-implementation-plan.md`](plans/dashboard-implementation-plan.md) | Dashboard milestones and file inventory. |
-| [`plans/code-health-budget.md`](plans/code-health-budget.md) | The measurement that set the limits, plus the plan to get under them. Still the reference for the numbers. |
-| [`architecture/gemini-adapter-notes.md`](architecture/gemini-adapter-notes.md) | Verified SDK behaviour while building the Gemini adapter: event shapes, error mapping, transport quirks. Useful if that adapter is ever touched again. |
-
-When a historical document disagrees with [`architecture.md`](architecture.md), the architecture document is right and the ADR explains why.
-
-## Conventions
-
-- **Specs** say *what must be true*, including non-goals and acceptance criteria.
-- **ADRs** say *why this way and not the other*, with rejected alternatives and their costs.
-- **Plans** say *in what order* and *how done is proven*.
-- **Architecture** says *how it works now*. It is the only document allowed to describe the present without a date qualifier.
+- `../ui-mockups/` — static design mockups.
+- `../assets/` — images and the demo GIF.
+- `../README.md` — product summary and quick start.
+- `../AGENTS.md` — how an agent should work here.

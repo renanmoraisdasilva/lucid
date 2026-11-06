@@ -27,7 +27,7 @@ Three rules made the loop useful:
 | 2026-10-28 | Requirements interview; scope, non-goals and acceptance criteria fixed | [spec v0.2](specs/001-lucid-specification.md) |
 | 2026-10-28 | Provider, data model, streaming, identifiers, failure semantics, frontend decided | [ADR-001](decisions/ADR-001-gemini-provider-and-model.md) … [ADR-006](decisions/ADR-006-frontend-and-local-dev.md) |
 | 2026-10-28 | Milestones with exit criteria; API and SSE contracts written before implementation | [plan](plans/implementation-plan.md) |
-| 2026-10-29 | Product named **Lucid**; static mockups of every screen state reviewed against the spec | [spec v0.3](specs/001-lucid-specification.md), [mockups](screen-mockups/) |
+| 2026-10-29 | Product named **Lucid**; static mockups of every screen state reviewed against the spec | [spec v0.3](specs/001-lucid-specification.md), [mockups](../../ui-mockups/) |
 | 2026-10-29 | Default Gemini model changed after measuring queueing latency | [ADR-001 amendment](decisions/ADR-001-gemini-provider-and-model.md) |
 | 2026-10-29 | MVP acceptance run recorded, criterion by criterion | README of the time, now summarised in [the spec](specs/001-lucid-specification.md) |
 | 2026-10-29 | Dashboard specified and built; code-health budget measured and enforced first | [dashboard spec](specs/002-lucid-dashboard-spec.md), [budget](plans/code-health-budget.md) |

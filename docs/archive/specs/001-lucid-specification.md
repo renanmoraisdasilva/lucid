@@ -24,13 +24,13 @@
 > non-goal UI was removed from them, and the remaining visual decisions
 > (assistant rendering, timestamps, keyboard shortcuts, sidebar grouping, token
 > format, code-block chrome) are recorded in §15 and in
-> [`../screen-mockups/README.md`](../screen-mockups/README.md).
+> [`../../../ui-mockups/README.md`](../../../ui-mockups/README.md).
 >
 > **v0.4 (2026-10-29):** The default model changed from `gemini-3.5-flash-lite` to
 > `gemini-3.6-flash`. The free tier queued the lite model for 30–66 seconds before
 > accepting each request; interleaved measurements in the same window gave
 > 2.2s/14.6s for 3.6-flash against 38.5s/42.1s/32.6s for lite. See the ADR-001
-> amendment and `docs/architecture/gemini-adapter-notes.md`. Everything else in
+> amendment and `docs/archive/gemini-adapter-notes.md`. Everything else in
 > this specification is unchanged.
 >
 > **v0.5 (2026-10-29):** A second, OpenAI-compatible provider (Groq by default)
@@ -110,7 +110,7 @@ These features may be considered in later projects or iterations, but should not
 
 ### 5.1 Main chat interface
 
-The visual reference is [`../screen-mockups/`](../screen-mockups/): `home.html`,
+The visual reference is [`../../../ui-mockups/`](../../../ui-mockups/): `home.html`,
 `new-chat.html`, `generating.html`, `interrupted.html`, `failed.html`,
 `delete-chat.html`, `sidebar-states.html`.
 

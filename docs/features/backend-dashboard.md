@@ -4,7 +4,7 @@ title: Dashboard aggregation
 paths:
   - backend/src/lucid/application/dashboard/**
 links:
-  - docs/specs/002-lucid-dashboard-spec.md
+  - docs/archive/specs/002-lucid-dashboard-spec.md
 verificationMethod: automated-test
 ---
 
@@ -13,7 +13,8 @@ verificationMethod: automated-test
 ## Overview
 
 Assembles overview metrics, token trends, latency percentiles, and recent
-generation rows from stored attempts.
+generation rows from stored attempts. The original dashboard specification is
+archived at `docs/archive/specs/002-lucid-dashboard-spec.md`.
 
 ### [LUCID-DASH-RULE-001] The selected window controls every bucket
 The 24h, 7d, and 30d ranges produce their documented bucket boundaries. Timestamps

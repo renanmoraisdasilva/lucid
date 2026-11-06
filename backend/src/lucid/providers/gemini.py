@@ -5,7 +5,7 @@ test). It maps application contracts to provider calls and provider events to
 application events, and translates every failure into a domain error.
 
 Verified against google-genai 2.34.0 on 2026-10-29; see
-``docs/architecture/gemini-adapter-notes.md``.
+``docs/archive/gemini-adapter-notes.md``.
 """
 
 import re

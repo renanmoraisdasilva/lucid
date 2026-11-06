@@ -6,7 +6,7 @@ Lucid is a single-user chat application: you type, a model answers, the answer s
 
 It is also a worked example of **spec-driven development**: the specification came first, the consequential choices were written down as ADRs, the build followed a plan with exit criteria, and the acceptance results were recorded instead of claimed.
 
-![Sending a message, switching model mid-conversation, and reading the dashboard](docs/demo.gif)
+![Sending a message, switching model mid-conversation, and reading the dashboard](assets/demo.gif)
 
 ---
 
@@ -22,17 +22,17 @@ It is also a worked example of **spec-driven development**: the specification ca
 
 | Conversation, two models | Model picker |
 | --- | --- |
-| ![A conversation that switches model between turns](docs/images/chat.webp) | ![The model picker open over the composer](docs/images/model-picker.webp) |
+| ![A conversation that switches model between turns](assets/images/chat.webp) | ![The model picker open over the composer](assets/images/model-picker.webp) |
 | The first turn ran on `gpt-oss-120b`, the second on `gpt-oss-20b`. Usage is per response; history is shared. | The picker lists only models the server is configured for, and remembers your choice across reloads. |
 
 | Dashboard | Interrupted generation |
 | --- | --- |
-| ![Dashboard with metrics, token trend and latency charts](docs/images/dashboard.webp) | ![A stopped generation with partial text kept](docs/images/stopped.webp) |
+| ![Dashboard with metrics, token trend and latency charts](assets/images/dashboard.webp) | ![A stopped generation with partial text kept](assets/images/stopped.webp) |
 | Volume, success rate, tokens, p50/p95 latency and recent attempts — all from the database, not from a log scraper. | Stop keeps what was already received and marks the attempt `interrupted`. Retry reuses the original message. |
 
 | Generation details | On a phone |
 | --- | --- |
-| ![Details dialog for one attempt](docs/images/generation-details.webp) | ![Mobile navigation drawer](docs/images/mobile-sidebar.webp) |
+| ![Details dialog for one attempt](assets/images/generation-details.webp) | ![Mobile navigation drawer](assets/images/mobile-sidebar.webp) |
 | One attempt: model, status, tokens, timing, error code. This is how a mixed-model conversation stays honest. | The same components, a drawer instead of the sidebar. |
 
 ---
@@ -114,9 +114,9 @@ flowchart LR
   A -.-> S
 ```
 
-The specification (`docs/specs/`) states requirements and acceptance criteria. Before building, the choices that would be expensive to reverse became ADRs (`docs/decisions/`) — provider, data model, streaming, identifiers, failure semantics, frontend, and later the second provider and model picker. The plan (`docs/plans/`) turned those into milestones with exit criteria.
+The specification (`docs/archive/specs/`) states requirements and acceptance criteria. Before building, the choices that would be expensive to reverse became ADRs (`docs/decisions/`) — provider, data model, streaming, identifiers, failure semantics, frontend, and later the second provider and model picker. The plan (`docs/archive/plans/`) turned those into milestones with exit criteria.
 
-The process was not decoration. Re-reading the provider docs changed the default model twice; measuring latency moved it again; a 20-request-per-day free tier forced the second provider; the code-health budget forced a 585-line module to be split before the dashboard was built. Those turns are recorded, with the evidence, in **[How this was built](docs/how-it-was-built.md)**.
+The process was not decoration. Re-reading the provider docs changed the default model twice; measuring latency moved it again; a 20-request-per-day free tier forced the second provider; the code-health budget forced a 585-line module to be split before the dashboard was built. Those turns are recorded, with the evidence, in **[How this was built](docs/archive/how-it-was-built.md)**.
 
 ## Tested, and gated
 
@@ -134,7 +134,7 @@ The process was not decoration. Re-reading the provider docs changed the default
 - **Budgets, not opinions:** files ≤ 300 lines (350 for providers), functions ≤ 50 lines, cyclomatic complexity ≤ 12, ≤ 5 parameters, ≤ 4 nesting levels, enforced by a test that parses the source.
 - **One import boundary test** proves the domain layer never imports the provider adapters.
 
-Details and commands: **[Testing](docs/testing.md)** and **[Code quality](docs/code-quality.md)**.
+Details and commands: **[Testing and quality gates](docs/testing.md)**.
 
 ## Run it
 
@@ -148,22 +148,21 @@ No key? Set `PROVIDER=fake` and the app runs on a scripted provider — the same
 
 ## Documentation
 
-Start here, then pick the branch you care about.
+Start with the index, then pick the question you care about.
 
-- **[Documentation index](docs/README.md)** — what each document is, and which are historical records
+- **[Documentation index](docs/README.md)** — the map, and where history lives
+- **[Feature rules](docs/features/)** — the current behavior requirements
 - **[Architecture](docs/architecture.md)** — request lifecycle, data model, provider boundary, failure semantics
-- **[Testing](docs/testing.md)** — the pyramid, what each layer proves, how to run it
-- **[Code quality](docs/code-quality.md)** — the gates, the budgets, and the refactors they forced
-- **[How this was built](docs/how-it-was-built.md)** — spec → ADR → plan → acceptance, and what changed along the way
+- **[Testing and quality gates](docs/testing.md)** — the pyramid, commands, coverage, and budgets
 - **[ADRs](docs/decisions/)** — the decisions themselves, with alternatives and costs
-- **[Specification](docs/specs/001-lucid-specification.md)** — requirements, non-goals, acceptance criteria
-- **[Screen mockups](docs/screen-mockups/)** — the static design pass that preceded the components
+- **[Archive](docs/archive/)** — original specs, completed plans, build history, and detailed quality notes
+- **[UI mockups](ui-mockups/)** — the static design pass that preceded the components
 
 The GIF and screenshots are generated from the running app, not hand-made:
 
 ```powershell
 npm run dev
-npm run demo:media          # docs/demo.gif + docs/images/*.webp
+npm run demo:media          # assets/demo.gif + assets/images/*.webp
 ```
 
 ## Limits

@@ -1,5 +1,5 @@
 # pyright: basic
-"""Enforce the code health budget defined in docs/plans/code-health-budget.md.
+"""Enforce the code health budget defined in docs/archive/plans/code-health-budget.md.
 
 This is intentionally a test rather than a separate script: it runs in the normal
 suite and cannot be skipped without a visible failure. Thresholds mirror the

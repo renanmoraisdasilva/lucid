@@ -560,7 +560,7 @@ Rules:
   method, and converting steps back to `contents` would add a network round trip
   per turn for an approximate number. **Decision: keep the character heuristic
   for selection and treat provider usage as the only exact count.** Details in
-  `docs/architecture/gemini-adapter-notes.md`.
+  `docs/archive/gemini-adapter-notes.md`.
 
 ---
 
@@ -578,7 +578,7 @@ Do not start the next milestone with failing checks or unchecked exit criteria.
 | 0.3 | Define data model, API contract, SSE contract | ✅ done (sections 4–6) |
 | 0.4 | Define milestones, tests, and risks | ✅ done (this document) |
 | 0.5 | User review and approval of spec v0.2 + plan | ⬜ pending |
-| 0.6 | Architecture diagram checked into `docs/architecture/` | ⬜ M1 |
+| 0.6 | Architecture diagram checked into `docs/archive/` | ⬜ M1 |
 
 **Exit:** no open question blocks Milestone 1; approval recorded.
 
@@ -643,7 +643,7 @@ duplicates or gaps); cascade delete verified; no provider code exists yet.
 | 3.1 | `domain/provider.py`: protocol, request/event dataclasses |
 | 3.2 | `domain/errors.py`: error hierarchy with `code` + `retryable` |
 | 3.3 | `providers/fake.py`: scripted deltas, configurable usage, injectable failures, injectable delays |
-| 3.4 | **Spike:** confirm on the current SDK — async client namespace for `interactions.create`, `stream=True`, `store=False`, `system_instruction` placement, input shape for multi-turn history, usage field names, mid-stream error payload. Write findings to `docs/architecture/gemini-adapter-notes.md` |
+| 3.4 | **Spike:** confirm on the current SDK — async client namespace for `interactions.create`, `stream=True`, `store=False`, `system_instruction` placement, input shape for multi-turn history, usage field names, mid-stream error payload. Write findings to `docs/archive/gemini-adapter-notes.md` |
 | 3.5 | `providers/gemini.py`: request mapping, event mapping (`step.delta`/text → `TextDelta`, `interaction.completed` → `StreamCompleted`, `thought*`/tool steps ignored), timeout, error translation |
 | 3.6 | Import-graph test: `google.genai` appears only in `providers/gemini.py` |
 | 3.7 | `prompts/system.md` + loader with startup validation |
@@ -709,7 +709,7 @@ when absent; no attempt can stay `in_progress` after restart.
 
 | # | Task |
 |---|---|
-| 6.0 | Implement the visual system from `docs/screen-mockups/`: tokens, shell (sidebar/header/composer), and the generating, interrupted, failed, empty, and delete states |
+| 6.0 | Implement the visual system from `ui-mockups/`: tokens, shell (sidebar/header/composer), and the generating, interrupted, failed, empty, and delete states |
 | 6.1 | Sidebar: `useInfiniteQuery`, New chat, `updated_at` ordering with Today / Yesterday / Previous 7 days groups, active highlight, next-page skeleton, end-of-list marker, delete with confirmation |
 | 6.2 | Markdown pipeline: `react-markdown` + `remark-gfm` + `rehype-sanitize` + `rehype-highlight`; `CodeBlock` with the language label and copy button, no line-number gutter |
 | 6.3 | Sanitization tests: `<script>`, `javascript:` links, `onerror` attributes, raw HTML, `<iframe>` all neutralized |

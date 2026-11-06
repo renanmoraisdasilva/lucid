@@ -93,9 +93,9 @@ reasoning above is kept as history, not rewritten.
 ## Follow-ups
 
 - **Model churn is a tracked risk.** See the risk section of
-  `docs/plans/implementation-plan.md`. A model registry and/or user-facing model
+  `docs/archive/plans/implementation-plan.md`. A model registry and/or user-facing model
   picker is explicitly deferred past the MVP.
 - Re-verify the adapter spike (method names on the async client, `store`
   parameter placement, usage field names, mid-stream error payload) before
   Milestone 3 is considered done, and record findings in
-  `docs/architecture/gemini-adapter-notes.md`.
+  `docs/archive/gemini-adapter-notes.md`.

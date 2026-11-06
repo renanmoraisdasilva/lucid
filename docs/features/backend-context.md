@@ -5,7 +5,7 @@ paths:
   - backend/src/lucid/application/context.py
   - backend/src/lucid/application/prompts.py
 links:
-  - docs/specs/001-lucid-specification.md
+  - docs/archive/specs/001-lucid-specification.md
 verificationMethod: automated-test
 ---
 
@@ -14,7 +14,8 @@ verificationMethod: automated-test
 ## Overview
 
 Builds the prompt from the conversation history within the model's context
-budget.
+budget. The original specification is archived at
+`docs/archive/specs/001-lucid-specification.md`.
 
 ### [LUCID-CTX-RULE-001] The newest message always fits
 The newest user message is never dropped. If it alone exceeds the available

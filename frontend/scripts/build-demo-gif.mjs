@@ -9,7 +9,7 @@
  *   npm run demo:media     # from the repository root
  *
  * Point it elsewhere with E2E_BASE_URL. `--stills` writes only the images and
- * no GIF. The output goes to docs/ and docs/images/.
+ * no GIF. The output goes to assets/ and assets/images/.
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,8 +24,8 @@ const { GIFEncoder, applyPalette, quantize } = gifenc;
 
 const STILLS_ONLY = process.argv.includes("--stills");
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const docsDir = path.join(repoRoot, "docs");
-const imgDir = path.join(docsDir, "images");
+const assetsDir = path.join(repoRoot, "assets");
+const imgDir = path.join(assetsDir, "images");
 const frameDir = mkdtempSync(path.join(tmpdir(), "lucid-frames-"));
 
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:5173";
@@ -186,8 +186,8 @@ async function stitchGif() {
   }
   encoder.finish();
 
-  const target = path.join(docsDir, "demo.gif");
-  mkdirSync(docsDir, { recursive: true });
+  const target = path.join(assetsDir, "demo.gif");
+  mkdirSync(assetsDir, { recursive: true });
   writeFileSync(target, Buffer.from(encoder.bytes()));
   console.log(
     `[demo] wrote ${path.relative(repoRoot, target)} (${(encoder.bytes().length / 1024).toFixed(0)} kB, ` +

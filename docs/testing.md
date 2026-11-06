@@ -143,3 +143,24 @@ it through `src/traceability.test.ts` and `tests/unit/test_traceability.py`.
 Keep the config at the Git root: `backend/` and `frontend/` do not contain a
 config.
 
+## Quality gates
+
+| Gate | Tool | Setting |
+| --- | --- | --- |
+| Python lint and format | Ruff | default rules, 100-column lines |
+| Python types | Pyright | `strict` |
+| Python tests | pytest | 80% coverage floor |
+| JS/TS lint and format | ESLint + Prettier | complexity, size, depth, parameters |
+| TS types | `tsc --noEmit` | `strict` |
+| Frontend tests | Vitest | 75% lines/statements, 70% branches/functions |
+| Frontend build | Vite | production build |
+
+Application code has zero suppressions. `backend/tests/test_code_health.py`
+enforces the size budget: 300 lines per source file (350 for provider adapters,
+600 for tests), 50 lines per function (80 for tests), 5 parameters, nesting 4,
+and cyclomatic complexity 12. ESLint applies the same idea to the frontend.
+
+The full history and the refactors these limits forced are in
+[`archive/code-quality.md`](archive/code-quality.md).
+
+

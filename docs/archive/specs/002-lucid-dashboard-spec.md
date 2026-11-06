@@ -246,7 +246,7 @@ Prefer simple SQL aggregation in PostgreSQL for the initial single-user workload
 
 ## 12. Mockup review decisions (2026-10-29)
 
-Confirmed after reviewing `../screen-mockups/dashboard.html` against this spec and
+Confirmed after reviewing `../../../ui-mockups/dashboard.html` against this spec and
 ADR-005. The mockup was rewritten to match these decisions.
 
 | # | Decision | Outcome |

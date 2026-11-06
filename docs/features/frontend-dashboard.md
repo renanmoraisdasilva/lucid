@@ -6,7 +6,7 @@ paths:
   - frontend/src/components/dashboard/**
   - frontend/src/hooks/useDashboard.ts
 links:
-  - docs/specs/002-lucid-dashboard-spec.md
+  - docs/archive/specs/002-lucid-dashboard-spec.md
 verificationMethod: automated-test
 ---
 
@@ -15,7 +15,8 @@ verificationMethod: automated-test
 ## Overview
 
 Presents volume, success rate, tokens, latency percentiles, and per-attempt
-details.
+details. The original dashboard specification is archived at
+`docs/archive/specs/002-lucid-dashboard-spec.md`.
 
 ### [UI-DASH-RULE-001] Loading does not pretend to have data
 While the dashboard loads, it announces loading and does not show fabricated
